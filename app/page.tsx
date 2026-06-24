@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -14,6 +14,13 @@ export default function Home() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resumeUrl, setResumeUrl] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const url = params.get('resumeUrl')
+    if (url) setResumeUrl(url)
+  }, [])
 
   const handleSubmit = async () => {
     if (!form.name || !form.email || !form.github) {
@@ -22,6 +29,7 @@ export default function Home() {
     }
     setLoading(true)
     setError('')
+
     const { error } = await supabase
       .from('assignments')
       .insert({
@@ -32,9 +40,14 @@ export default function Home() {
         submitted_at: new Date().toISOString(),
         status: 'submitted'
       })
+
     if (error) {
       setError('Error: ' + error.message)
     } else {
+      // resumeUrl call karo n8n Wait node resume karne ke liye
+      if (resumeUrl) {
+        await fetch(resumeUrl, { method: 'POST' }).catch(() => {})
+      }
       setSubmitted(true)
     }
     setLoading(false)
