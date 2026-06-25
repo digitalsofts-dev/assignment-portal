@@ -100,13 +100,20 @@ export default function DashboardPage() {
   }, [candidates]);
 
   const skillsData = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    candidates.forEach((candidate) => {
-      (candidate.skills || []).forEach((skill) => {
-        map[skill] = (map[skill] || 0) + 1;
-      });
+  const map: Record<string, number> = {};
+  candidates.forEach((candidate) => {
+    const skills = typeof candidate.skills === 'string'
+      ? candidate.skills.replace(/[\[\]"]/g, '').split(',').map(s => s.trim())
+      : candidate.skills || [];
+    skills.forEach((skill) => {
+      map[skill] = (map[skill] || 0) + 1;
     });
+  });
+  return Object.entries(map)
+    .map(([skill, count]) => ({ skill, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+}, [candidates]);
 
     return Object.entries(map)
       .map(([skill, count]) => ({
