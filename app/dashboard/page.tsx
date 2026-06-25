@@ -31,7 +31,7 @@ type Candidate = {
   email: string;
   phone: string;
   skills: string[];
-  qualification_score: number;
+  score: number;
   status: string;
   created_at: string;
 };
@@ -77,7 +77,7 @@ export default function DashboardPage() {
     if (!candidates.length) return 0;
 
     const total = candidates.reduce(
-      (sum, item) => sum + (item.qualification_score || 0),
+      (sum, item) => sum + (item.score || 0),
       0
     );
 
@@ -276,7 +276,7 @@ export default function DashboardPage() {
                   <tr key={candidate.id} className="border-b">
                     <td className="p-3">{candidate.name}</td>
                     <td className="p-3">
-                      {candidate.qualification_score}
+                      {candidate.score}
                     </td>
                     <td className="p-3">
                       <span
