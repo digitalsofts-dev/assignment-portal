@@ -24,46 +24,35 @@ export default function Home() {
 
   const validate = () => {
     const newErrors: any = {}
-
-    // Name validation
     if (!form.name.trim()) {
       newErrors.name = 'Name is required!'
     } else if (form.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters!'
     }
-
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!form.email.trim()) {
       newErrors.email = 'Email is required!'
     } else if (!emailRegex.test(form.email)) {
       newErrors.email = 'Please enter a valid email address!'
     }
-
-    // GitHub validation
     const githubRegex = /^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+\/?$/
     if (!form.github.trim()) {
       newErrors.github = 'GitHub repository link is required!'
     } else if (!githubRegex.test(form.github)) {
       newErrors.github = 'Please enter a valid GitHub repository URL (e.g. https://github.com/username/repo)'
     }
-
-    // Explanation validation
     if (!form.explanation.trim()) {
       newErrors.explanation = 'Please provide a brief explanation!'
     } else if (form.explanation.trim().length < 20) {
       newErrors.explanation = 'Explanation must be at least 20 characters!'
     }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async () => {
     if (!validate()) return
-
     setLoading(true)
-
     const { error } = await supabase
       .from('assignments')
       .insert({
@@ -74,7 +63,6 @@ export default function Home() {
         submitted_at: new Date().toISOString(),
         status: 'submitted'
       })
-
     if (error) {
       setErrors({ submit: 'Submission failed: ' + error.message })
     } else {
@@ -98,13 +86,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white p-8 rounded-xl shadow w-full max-w-lg">
-        <h1 className="text-2xl font-bold mb-6">Assignment Submission</h1>
+        <h1 className="text-2xl font-bold mb-6 text-gray-800">Assignment Submission</h1>
 
         {errors.submit && <p className="text-red-500 mb-4">{errors.submit}</p>}
 
         <div className="mb-4">
           <input
-            className={`w-full border p-3 rounded ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+            className={`w-full border p-3 rounded text-gray-800 placeholder-gray-400 bg-white ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="Your Name"
             value={form.name}
             onChange={e => setForm({...form, name: e.target.value})}
@@ -114,7 +102,7 @@ export default function Home() {
 
         <div className="mb-4">
           <input
-            className={`w-full border p-3 rounded ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+            className={`w-full border p-3 rounded text-gray-800 placeholder-gray-400 bg-white ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="Your Email"
             value={form.email}
             onChange={e => setForm({...form, email: e.target.value})}
@@ -124,7 +112,7 @@ export default function Home() {
 
         <div className="mb-4">
           <input
-            className={`w-full border p-3 rounded ${errors.github ? 'border-red-500' : 'border-gray-300'}`}
+            className={`w-full border p-3 rounded text-gray-800 placeholder-gray-400 bg-white ${errors.github ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="GitHub Repository Link"
             value={form.github}
             onChange={e => setForm({...form, github: e.target.value})}
@@ -134,7 +122,7 @@ export default function Home() {
 
         <div className="mb-4">
           <textarea
-            className={`w-full border p-3 rounded h-32 ${errors.explanation ? 'border-red-500' : 'border-gray-300'}`}
+            className={`w-full border p-3 rounded h-32 text-gray-800 placeholder-gray-400 bg-white ${errors.explanation ? 'border-red-500' : 'border-gray-300'}`}
             placeholder="Brief explanation of your solution (min 20 characters)"
             value={form.explanation}
             onChange={e => setForm({...form, explanation: e.target.value})}
