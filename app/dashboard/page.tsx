@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const handleLogin = () => {
     if (password === "admin123") {
@@ -141,13 +142,18 @@ export default function DashboardPage() {
       );
     }
 
-    return result;
-  }, [candidates, statusFilter, searchTerm]);
+    result = [...result].sort((a, b) => {
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return sortOrder === "newest" ? diff : -diff;
+    });
 
-  // Reset to page 1 whenever filter/search changes
+    return result;
+  }, [candidates, statusFilter, searchTerm, sortOrder]);
+
+  // Reset to page 1 whenever filter/search/sort changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / ROWS_PER_PAGE));
 
@@ -283,6 +289,16 @@ export default function DashboardPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="border rounded-lg px-3 py-1.5 text-sm text-gray-800 placeholder-gray-400 w-full md:w-64"
               />
+
+              {/* Sort order */}
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+                className="border rounded-lg px-3 py-1.5 text-sm text-gray-800 bg-white"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
             </div>
           </div>
 
