@@ -549,15 +549,13 @@ export default function DashboardPage() {
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-3 text-gray-600">Name</th>
-                  <th className="text-left p-3 text-gray-600">Score</th>
-                  <th className="text-left p-3 text-gray-600">Status</th>
-                  <th className="text-left p-3 text-gray-600">Date</th>
+                  <th className="text-left p-3 text-gray-600">Applied On</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedCandidates.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-gray-400">No candidates found.</td>
+                    <td colSpan={2} className="p-6 text-center text-gray-400">No candidates found.</td>
                   </tr>
                 ) : (
                   paginatedCandidates.map((candidate) => (
@@ -567,11 +565,7 @@ export default function DashboardPage() {
                       onClick={() => setSelectedCandidate(candidate)}
                     >
                       <td className="p-3 text-blue-600 font-medium hover:underline">{candidate.name}</td>
-                      <td className="p-3 text-gray-800">{candidate.score}</td>
-                      <td className="p-3">
-                        <StatusBadge status={candidate.status} />
-                      </td>
-                      <td className="p-3 text-gray-800">
+                      <td className="p-3 text-gray-500 text-sm">
                         {new Date(candidate.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}
                       </td>
                     </tr>
