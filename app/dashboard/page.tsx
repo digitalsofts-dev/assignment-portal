@@ -22,7 +22,7 @@ type Candidate = {
   email: string;
   phone: string;
   skills: string | string[];
- experience: string | null;;
+ experience: string | null;
   education: string;
   score: number;
   status: string;
