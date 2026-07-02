@@ -90,6 +90,69 @@ function TimelineStep({
   );
 }
 
+function AssignmentSection({ assignment }: { assignment: Assignment }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      {assignment.assignment_title && (
+        <div className="flex justify-between mb-1">
+          <span>Title</span>
+          <span className="font-semibold text-gray-800">{assignment.assignment_title}</span>
+        </div>
+      )}
+      <div className="flex justify-between mb-1">
+        <span>Status</span>
+        <span className="font-semibold text-gray-800 capitalize">{assignment.status}</span>
+      </div>
+      {assignment.submitted_github && (
+        <div className="flex justify-between mb-1">
+          <span>GitHub</span>
+          <a href={assignment.submitted_github} target="_blank" rel="noreferrer"
+            className="text-blue-600 hover:underline font-medium">
+            View Repo
+          </a>
+        </div>
+      )}
+      {assignment.submitted_at && (
+        <div className="flex justify-between mb-1">
+          <span>Submitted At</span>
+          <span className="font-semibold text-gray-800">
+            {new Date(assignment.submitted_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}
+          </span>
+        </div>
+      )}
+      {assignment.review_score !== null && (
+        <div className="flex justify-between mb-1">
+          <span>Assignment Score</span>
+          <span className="font-semibold text-gray-800">{assignment.review_score} / 100</span>
+        </div>
+      )}
+      {assignment.explanation && (
+        <div className="mt-2">
+          <span className="text-gray-400">Feedback</span>
+          <p className="text-gray-700 mt-1">{assignment.explanation}</p>
+        </div>
+      )}
+      {assignment.assignment_text && (
+        <div className="mt-3">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            {expanded ? "▲ Hide Assignment" : "▼ View Full Assignment"}
+          </button>
+          {expanded && (
+            <div className="mt-3 bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto">
+              {assignment.assignment_text}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 function CandidateProfile({
   candidate,
   assignment,
@@ -192,47 +255,7 @@ function CandidateProfile({
             done={assignment !== null}
           >
             {assignment ? (
-              <>
-                {assignment.assignment_title && (
-                  <div className="flex justify-between mb-1">
-                    <span>Title</span>
-                    <span className="font-semibold text-gray-800">{assignment.assignment_title}</span>
-                  </div>
-                )}
-                <div className="flex justify-between mb-1">
-                  <span>Status</span>
-                  <span className="font-semibold text-gray-800 capitalize">{assignment.status}</span>
-                </div>
-                {assignment.submitted_github && (
-                  <div className="flex justify-between mb-1">
-                    <span>GitHub</span>
-                    <a href={assignment.submitted_github} target="_blank" rel="noreferrer"
-                      className="text-blue-600 hover:underline font-medium">
-                      View Repo
-                    </a>
-                  </div>
-                )}
-                {assignment.submitted_at && (
-                  <div className="flex justify-between mb-1">
-                    <span>Submitted At</span>
-                    <span className="font-semibold text-gray-800">
-                      {new Date(assignment.submitted_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}
-                    </span>
-                  </div>
-                )}
-                {assignment.review_score !== null && (
-                  <div className="flex justify-between mb-1">
-                    <span>Assignment Score</span>
-                    <span className="font-semibold text-gray-800">{assignment.review_score} / 100</span>
-                  </div>
-                )}
-                {assignment.explanation && (
-                  <div className="mt-2">
-                    <span className="text-gray-400">Feedback</span>
-                    <p className="text-gray-700 mt-1">{assignment.explanation}</p>
-                  </div>
-                )}
-              </>
+              <AssignmentSection assignment={assignment} />
             ) : (
               <span className="text-gray-400">Assignment not yet sent</span>
             )}
