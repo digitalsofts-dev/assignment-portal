@@ -22,7 +22,7 @@ type Candidate = {
   email: string;
   phone: string;
   skills: string | string[];
-  experience: number;
+ experience: string | null;;
   education: string;
   score: number;
   status: string;
@@ -196,7 +196,7 @@ function CandidateProfile({
             </div>
             <div>
               <span className="text-gray-400">Experience</span>
-              <p className="text-gray-800 font-medium">{candidate.experience ? `${candidate.experience} years` : "—"}</p>
+              <p className="text-gray-800 font-medium">{candidate.experience && candidate.experience !== "0" ? candidate.experience : "—"}</p>
             </div>
           </div>
 
