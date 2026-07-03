@@ -461,7 +461,7 @@ export default function DashboardPage() {
                 <h2 className="font-bold text-gray-800 mb-4">Final Decision</h2>
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
-                    <Pie data={pieData} dataKey="value" outerRadius={90} innerRadius={50} label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                    <Pie data={pieData} dataKey="value" outerRadius={90} innerRadius={50} label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""} labelLine={false}>
                       {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip />
