@@ -1,0 +1,1081 @@
+{
+  "name": "Automated CV Screening and Candidate Response System",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "has:attachment smaller:1M (filename:*.pdf OR filename:*.docx OR filename:*.jpg OR filename:*.jpeg OR filename:*.png)",
+          "readStatus": "unread"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "8db2ebb7-59c2-4ccb-b1fe-42211415e7be",
+      "name": "New Job Application Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -1680,
+        -96
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qGGw8rLXW0cUP0Vq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "={{$json.binaryField}}",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "f405cc30-363f-4a2d-a876-49039bb9355a",
+      "name": "Extract CV Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract and analyze the following CV:\n{{ $json.text }}\n\nExtract the following:\n- candidate name\n- email  \n- phone\n- skills: extract ONLY the main skill category headers or core technology names (maximum 10 skills, each under 4 words). Example: [\"AI & Machine Learning\", \"Cyber Security\", \"Python\", \"Web Development\"]. Do NOT include long descriptions or sub-skills.\n- experience: extract ONLY if explicitly mentioned in CV. Accept any format like \"2 years\", \"6 months\", \"six months\", \"one year\", \"3+ years\". Return EXACTLY as written in CV. If not mentioned, return \"0\".\n- yearsOfExperience: same as experience field above.\n- education\n- qualification score (0-100) based on technical skills and experience level\n- brief summary\n\nReturn as JSON only. No extra text, no markdown, no backticks.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert HR assistant that analyzes CVs and extracts structured candidate information. Extract all requested fields accurately from the CV text and provide a qualification score based on technical skills depth and years of experience."
+        }
+      },
+      "id": "63241261-02a9-4e35-a78a-09ec8aeb84b5",
+      "name": "Analyze CV with AI",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        976,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "id": "ebdc9c25-58d7-414a-8c5e-6eae9bec0986",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        304
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0VEtFT0gJs83Ep3T",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"candidateName\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1234567890\",\n  \"skills\": [\"Python\", \"Machine Learning\", \"Data Analysis\"],\n  \"yearsOfExperience\": 5,\n  \"education\": \"Bachelor of Science in Computer Science\",\n  \"qualificationScore\": 85,\n  \"summary\": \"Experienced software engineer with strong ML background\"\n}"
+      },
+      "id": "e4cce4c8-c0af-4eb1-8262-208580e9d634",
+      "name": "CV Data Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1136,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.output.email }}",
+        "subject": "=Application Received - {{ $json.output.candidateName }}",
+        "message": "=<p>Dear {{ $json.output.candidateName }},</p>\n\n<p>Thank you for applying for the position at <strong>Digital Soft</strong>. We appreciate your interest in joining our team.</p>\n\n<p>For further details regarding your application status and the next steps from the HR department, please check your registered <strong>Gmail</strong> inbox.</p>\n\n<p>Best regards,<br>\nHR Team<br>\nDigital Soft</p>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d7a21f83-d841-4905-894d-6e32b5689cb5",
+      "name": "Send Acknowledgment Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1584,
+        96
+      ],
+      "webhookId": "16d3cce4-dc01-4a55-b774-b871ce0d2444",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qGGw8rLXW0cUP0Vq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://usmantariq.app.n8n.cloud/webhook/candidate-screening",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "candidateName",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "skills",
+              "value": "={{ $json.skills }}"
+            },
+            {
+              "name": "qualificationScore",
+              "value": "={{ $json.score }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12fd6966-8012-40ff-a58c-1e737e76fa6e",
+      "name": "Trigger Assignment Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        928,
+        832
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "tableId": "candidates",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.candidateName }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.email }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.phone }}"
+            },
+            {
+              "fieldId": "skills",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.skills }}"
+            },
+            {
+              "fieldId": "experience",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.experience ?? $('Analyze CV with AI').item.json.output.yearsOfExperience ?? \"0\" }}"
+            },
+            {
+              "fieldId": "score",
+              "fieldValue": "={{ Math.round($('Analyze CV with AI').item.json.output.score ?? $('Analyze CV with AI').item.json.output.qualificationScore ?? 0) }}"
+            },
+            {
+              "fieldId": "education",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.education }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        848
+      ],
+      "id": "8fb68e37-b77e-4636-ab49-920242307740",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "J0YHsIDipX8j8qwL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://wam.s0226.digitalsofts.com/send-message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "client-id",
+              "value": "ds_auto_recruit_client_d29ed8mqwebg0a"
+            },
+            {
+              "name": "x-api-key",
+              "value": "57e12db9e36e2b82afa82c53b8c8453a1d37105fb201df9a2d164eae8bf3a4f6"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"client_id\": \"dsautorecr_ex8b01782566917065\",\n  \"phone\": \"{{ $('Analyze CV with AI').item.json.output.phone }}\",\n  \"message\": \"Dear {{ $('Analyze CV with AI').item.json.output.candidateName }}, Thank you for applying to DigitalSofts! Please check your email for further details regarding your application.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1856,
+        96
+      ],
+      "id": "1d86c4ee-f8b3-41ae-93c9-860df3610066",
+      "name": "HTTP Request",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "candidates",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "keyValue": "={{ $('Analyze CV with AI').item.json.output.email }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        400
+      ],
+      "id": "7eba09d0-c543-4e3f-8f3c-53e96bc56c6a",
+      "name": "Get a row",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "J0YHsIDipX8j8qwL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4552c61d-df1f-4b08-9392-905e43745a5c",
+              "leftValue": "={{ $('Get a row').item.json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1584,
+        400
+      ],
+      "id": "42fa2cba-deec-4af3-9f54-a801500e4d9e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "06c921a9-e67f-4e18-9f3a-6689c4ce16ec",
+              "leftValue": "={{ $('Get a row').item.json.status }}",
+              "rightValue": "applied",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        384
+      ],
+      "id": "daf46a14-d9e9-4a65-b4a7-71a179744f71",
+      "name": "If1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        256
+      ],
+      "id": "6f9bd1a9-c2be-498c-854c-7c15eb1176f9",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "candidates",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get a row').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "score",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.score }}"
+            },
+            {
+              "fieldId": "skills",
+              "fieldValue": "={{ $('Analyze CV with AI').item.json.output.skills }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": " applied"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "= {{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        592
+      ],
+      "id": "05f1d393-e9a6-435f-818e-3188bef876ce",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "J0YHsIDipX8j8qwL",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cloudconvert.com/v2/jobs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": " Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiYTg4MjQ0MmNlNTBmNGZmOTI1NjE0ODMyM2JjZjhmZDgyODcxOTlmMDlhYTJkZWZjZDdjM2Y3ZDM1MjQzMTMyNGRlMzMxZDU1ZDhkOTU4YjQiLCJpYXQiOjE3ODI5MDMxMjEuNjkxMjk5LCJuYmYiOjE3ODI5MDMxMjEuNjkxMywiZXhwIjo0OTM4NTc2NzIxLjY4Mjk1NSwic3ViIjoiNzYxNjQ4MzciLCJzY29wZXMiOlsidGFzay5yZWFkIiwidGFzay53cml0ZSJdfQ.lCftq7cJMriPFfiTZgTguFntozoBHx76NEw9PBBEjg1lJDcu_hwDK1RjTafZuB7UqUMIItk_DA9YX5gPqKyMkFPgbmbr2YbKM-Ho2q3sfrqEl3FlcULQ0p2X5yPCa67l-KerXN0pnY9thg2C8PcuAdV8vaaM9u5o0V1q3l1TbZIsFYcKlCKCV4Go9W3iNl1g1S3wYzITazd3E5fkkIjDPW5XQSOaj9PmsTwaWg2PfyWjFGuDiYJ335p0rMvw3w-bsLxyHiwSqMlfUYh7EDv63vna1lVa5LAT6gROCq2iKohqJGs9sq8ctJDbHXaCTIiy2selUwEnVIKlfQ8g66D_jpB8AREHzT5bjl34GmFsLH28TAp0snkpjy0UW9QItln78MpzbjHPQqzXqo-z0FAmJebstkpoDsPq5uTBibb-jtEVD9X8q9ekDzP7F3k5XYMcCuxFwMZbXlcuHAnmO9XFmCypYjVkQYqN3BnBbnYt1ZNOAZhlGJY-KVsUmSeeEc2KHFxAtsrkIbBkKJU9jxIMNVokouvao9B_LxX-KPJBITwLSCfiWDl-hLaS4ghpuxPNNFaFmzHDeuHewqE87bNNcG2LPq3ZaydDhGbhUdJrElszlakwgVS-R4e_EFhhE6JBQoAifEgppBUhUK0LQ7V_jYqTcKJ8Rfiu0h8-HB4Svdc"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"tasks\": {\n    \"upload-cv\": {\n      \"operation\": \"import/upload\"\n    },\n    \"convert-cv\": {\n      \"operation\": \"convert\",\n      \"input\": \"upload-cv\",\n      \"input_format\": \"docx\",\n      \"output_format\": \"pdf\",\n      \"engine\": \"libreoffice\"\n    },\n    \"export-cv\": {\n      \"operation\": \"export/url\",\n      \"input\": \"convert-cv\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -960,
+        304
+      ],
+      "id": "8a08e4c3-07e8-428d-b3d4-3db94252814d",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -560,
+        -112
+      ],
+      "id": "69922624-cbe3-4c19-b794-2b58ed8107a2",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.data.tasks[0].result.form.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "acl",
+              "value": "private"
+            },
+            {
+              "name": "key",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters.key}}"
+            },
+            {
+              "name": "success_action_status",
+              "value": "201"
+            },
+            {
+              "name": "X-Amz-Credential",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters['X-Amz-Credential']}}"
+            },
+            {
+              "name": "X-Amz-Algorithm",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters['X-Amz-Algorithm']}}"
+            },
+            {
+              "name": "X-Amz-Date",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters['X-Amz-Date']}}"
+            },
+            {
+              "name": "Policy",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters.Policy}}"
+            },
+            {
+              "name": "X-Amz-Signature",
+              "value": "={{$('HTTP Request1').item.json.data.tasks[0].result.form.parameters['X-Amz-Signature']}}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "attachment_0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -496,
+        304
+      ],
+      "id": "4acd009e-815f-4cef-8e33-60aa0aa75aba",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.text;\nconst wordCount = text.trim().split(/\\s+/).length;\n\nreturn [{\n  json: {\n    text: text,\n    wordCount: wordCount\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "061f8085-072f-4b8f-9c62-576a743d4064",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dfe9d937-708a-47b4-acde-39e812488fe1",
+              "leftValue": "={{$json.wordCount}}",
+              "rightValue": 2500,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "c1d707b3-5112-4434-ad0e-aef4b2ae4c6e",
+      "name": "check pages"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$('New Job Application Email').item.json.from.value[0].address}}",
+        "subject": "Application Not Accepted - CV Too Long",
+        "message": "=<h2>Application Not Accepted - CV Too Long</h2>   <p>Dear <strong>{{$('New Job Application Email').item.json.from.value[0].name}}</strong>,</p>   <p>Thank you for applying. Unfortunately, your CV exceeds our maximum limit of <strong>2500 words</strong>.</p>   <p>Please shorten your CV and resubmit your application.</p>   <br>   <p>Best regards,<br>HR Team</p> ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        96
+      ],
+      "id": "1037eefb-7011-43a5-b204-d484978956e2",
+      "name": "Send a message",
+      "webhookId": "4b127a84-679f-4247-b7ae-9c4edc612bff",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qGGw8rLXW0cUP0Vq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$('New Job Application Email').item.json.from.value[0].address}}",
+        "subject": "Application Update - please use correct method",
+        "message": "=<html>\n  <h2>Application Update</h2>\n  <p>Dear <strong>{{$('New Job Application Email').item.json.from.value[0].name}}</strong>,</p>\n  <p>Thank you for your interest in our position.</p>\n  <p>Unfortunately, we were unable to process your application because your CV was submitted in an incorrect format.</p>\n  <p>Please resubmit your CV in one of the following formats: <strong>PDF, DOCX, JPG,</strong>.</p>\n  <br>\n  <p>Best regards,<br>HR Team</p>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        -240
+      ],
+      "id": "0e8d8269-2db9-4018-a6ae-cc6b4146720e",
+      "name": "Send a message1",
+      "webhookId": "0a2db514-f212-4498-ba1c-2080c8b9b533",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qGGw8rLXW0cUP0Vq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4a2cbd9e-2cd1-4375-bde9-b79e0788c917",
+              "leftValue": "={{$binary.attachment_0.fileExtension}}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "88a7b465-02cd-40f4-a58c-cfadfd11b14b",
+              "leftValue": "={{$binary.attachment_0.fileExtension}}",
+              "rightValue": "docx",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1408,
+        -96
+      ],
+      "id": "45b6cd6c-cec8-48fc-a775-5952977a0fce",
+      "name": "check formate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ba6b5a38-39b9-4df6-85ea-b384ed78131d",
+              "leftValue": "={{$binary.attachment_0.mimeType}}",
+              "rightValue": "application/pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1200,
+        0
+      ],
+      "id": "222655b0-66e4-41c2-8fc6-3c85ef728ac3",
+      "name": "check pdf or docx"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloudconvert.com/v2/jobs/{{$('HTTP Request1').item.json.data.id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer  eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiYTg4MjQ0MmNlNTBmNGZmOTI1NjE0ODMyM2JjZjhmZDgyODcxOTlmMDlhYTJkZWZjZDdjM2Y3ZDM1MjQzMTMyNGRlMzMxZDU1ZDhkOTU4YjQiLCJpYXQiOjE3ODI5MDMxMjEuNjkxMjk5LCJuYmYiOjE3ODI5MDMxMjEuNjkxMywiZXhwIjo0OTM4NTc2NzIxLjY4Mjk1NSwic3ViIjoiNzYxNjQ4MzciLCJzY29wZXMiOlsidGFzay5yZWFkIiwidGFzay53cml0ZSJdfQ.lCftq7cJMriPFfiTZgTguFntozoBHx76NEw9PBBEjg1lJDcu_hwDK1RjTafZuB7UqUMIItk_DA9YX5gPqKyMkFPgbmbr2YbKM-Ho2q3sfrqEl3FlcULQ0p2X5yPCa67l-KerXN0pnY9thg2C8PcuAdV8vaaM9u5o0V1q3l1TbZIsFYcKlCKCV4Go9W3iNl1g1S3wYzITazd3E5fkkIjDPW5XQSOaj9PmsTwaWg2PfyWjFGuDiYJ335p0rMvw3w-bsLxyHiwSqMlfUYh7EDv63vna1lVa5LAT6gROCq2iKohqJGs9sq8ctJDbHXaCTIiy2selUwEnVIKlfQ8g66D_jpB8AREHzT5bjl34GmFsLH28TAp0snkpjy0UW9QItln78MpzbjHPQqzXqo-z0FAmJebstkpoDsPq5uTBibb-jtEVD9X8q9ekDzP7F3k5XYMcCuxFwMZbXlcuHAnmO9XFmCypYjVkQYqN3BnBbnYt1ZNOAZhlGJY-KVsUmSeeEc2KHFxAtsrkIbBkKJU9jxIMNVokouvao9B_LxX-KPJBITwLSCfiWDl-hLaS4ghpuxPNNFaFmzHDeuHewqE87bNNcG2LPq3ZaydDhGbhUdJrElszlakwgVS-R4e_EFhhE6JBQoAifEgppBUhUK0LQ7V_jYqTcKJ8Rfiu0h8-HB4Svdc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -48,
+        304
+      ],
+      "id": "c3b41761-abf2-448f-a124-dbb07c53b2dd",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.data.tasks[0].result.files[0].url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        304
+      ],
+      "id": "b2728a86-97cf-4401-8c22-03eb6939f5c3",
+      "name": "HTTP Request4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        304
+      ],
+      "id": "cfc8ff33-e9bb-451d-b243-7c0ced5bbb3f",
+      "name": "Wait",
+      "webhookId": "dbce7c0a-c03a-480b-9086-4150d6ebc73a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst result = [];\n\nfor (const item of items) {\n  // Get binary from previous Gmail node\n  const gmailItem = $('New Job Application Email').first();\n  \n  result.push({\n    json: item.json,\n    binary: gmailItem.binary\n  });\n}\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        304
+      ],
+      "id": "cc5a2822-91a1-4063-aca3-ae91c1da3e5d",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst binary = item.binary;\n\nlet binaryField = '';\n\nif (binary.attachment_0) {\n  binaryField = 'attachment_0'; // Direct PDF aaya Gmail se\n} else if (binary.data) {\n  binaryField = 'data'; // CloudConvert se converted PDF aaya\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    binaryField: binaryField\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -112
+      ],
+      "id": "3717f288-bc80-463f-a493-31bb84a66759",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Job Application Email": {
+      "main": [
+        [
+          {
+            "node": "check formate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CV Text": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze CV with AI": {
+      "main": [
+        [
+          {
+            "node": "Send Acknowledgment Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze CV with AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV Data Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze CV with AI",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Assignment Generator": {
+      "main": [
+        []
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Trigger Assignment Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Acknowledgment Email": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Trigger Assignment Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "check pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check pages": {
+      "main": [
+        [
+          {
+            "node": "Analyze CV with AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check formate": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "check pdf or docx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check pdf or docx": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Extract CV Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "99cdd1ef-7c41-460a-9c14-83dcf0c13fee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "846c12274aa2b9fa61c4bcaed23ae8cd4724ff1c4c581f840039a667ce788f6d"
+  },
+  "nodeGroups": [],
+  "id": "vknpsyKrnlHsKqYI",
+  "tags": []
+}
