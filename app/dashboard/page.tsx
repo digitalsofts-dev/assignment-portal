@@ -31,7 +31,8 @@ type Candidate = {
   cal_booking_time: string | null;
   cal_booking_status: string | null;
   cv_path: string | null;
-  evaluation_pdf_path: string | null;
+  evaluation_pdf_path: string | null;  
+  assignment_pdf_path: string | null;
 };
 
 type Assignment = {
@@ -107,7 +108,7 @@ function TimelineStep({ icon, title, done, children }: {
   );
 }
 
-function AssignmentSection({ assignment }: { assignment: Assignment }) {
+function AssignmentSection({ assignment, candidate }: { assignment: Assignment; candidate: Candidate }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <>
@@ -263,7 +264,7 @@ function CandidateProfile({ candidate, assignment, onBack }: {
           </TimelineStep>
 
           <TimelineStep icon="📝" title="Technical Assignment" done={assignment !== null}>
-            {assignment ? <AssignmentSection assignment={assignment} /> : <span className="text-gray-400">Assignment not yet sent</span>}
+            {assignment ? <AssignmentSection assignment={assignment} candidate={candidate} /> : <span className="text-gray-400">Assignment not yet sent</span>}
           </TimelineStep>
 
           <TimelineStep icon="📅" title="Final Interview Scheduled" done={candidate.cal_booking_status === "booked"}>
