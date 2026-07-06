@@ -150,7 +150,7 @@ function AssignmentSection({ assignment, candidate }: { assignment: Assignment; 
       )}
 
       {/* Assignment PDF viewer button */}
-      <PdfButton path={assignment.assignment_pdf_path} label="View Assignment PDF" />
+      <PdfButton path={candidate.assignment_pdf_path} label="View Assignment PDF" />
 
       {assignment.assignment_text && (
         <div className="mt-3">
