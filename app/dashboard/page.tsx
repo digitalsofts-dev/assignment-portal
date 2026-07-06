@@ -30,6 +30,8 @@ type Candidate = {
   cal_booking_date: string | null;
   cal_booking_time: string | null;
   cal_booking_status: string | null;
+  cv_path: string | null;
+  evaluation_pdf_path: string | null;
 };
 
 type Assignment = {
@@ -43,7 +45,35 @@ type Assignment = {
   status: string;
   created_at: string;
   explanation: string | null;
+  assignment_pdf_path: string | null;
 };
+
+// Generates a temporary signed URL for a private Supabase Storage object and opens it in a new tab
+async function openPdf(path: string | null | undefined) {
+  if (!path) return;
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .createSignedUrl(path, 3600); // valid for 1 hour
+
+  if (error || !data?.signedUrl) {
+    console.error("Signed URL error:", error);
+    alert("PDF load nahi ho saka. Please try again.");
+    return;
+  }
+  window.open(data.signedUrl, "_blank");
+}
+
+function PdfButton({ path, label }: { path: string | null | undefined; label: string }) {
+  if (!path) return null;
+  return (
+    <button
+      onClick={() => openPdf(path)}
+      className="mt-2 inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 hover:underline text-sm font-medium transition"
+    >
+      📄 {label}
+    </button>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -117,6 +147,10 @@ function AssignmentSection({ assignment }: { assignment: Assignment }) {
           <p className="text-gray-700 mt-1">{assignment.explanation}</p>
         </div>
       )}
+
+      {/* Assignment PDF viewer button */}
+      <PdfButton path={assignment.assignment_pdf_path} label="View Assignment PDF" />
+
       {assignment.assignment_text && (
         <div className="mt-3">
           <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
@@ -219,6 +253,7 @@ function CandidateProfile({ candidate, assignment, onBack }: {
             <div className="flex justify-between mt-1"><span>Applied On</span>
               <span className="font-semibold text-gray-800">{new Date(candidate.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}</span>
             </div>
+            <PdfButton path={candidate.cv_path} label="View CV" />
           </TimelineStep>
 
           <TimelineStep icon="🎯" title="Interview" done={candidate.interview_score !== null}>
@@ -252,7 +287,10 @@ function CandidateProfile({ candidate, assignment, onBack }: {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-gray-800 mb-2">Final Decision</h3>
-              <div className="bg-gray-50 border border-gray-100 rounded-xl p-4"><StatusBadge status={candidate.status} /></div>
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                <StatusBadge status={candidate.status} />
+                <PdfButton path={candidate.evaluation_pdf_path} label="View Evaluation Report" />
+              </div>
             </div>
           </div>
         </div>
