@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  LineChart, Line, Legend,
+  LineChart, Line,
 } from "recharts";
 
 const supabase = createClient(
@@ -14,6 +14,14 @@ const supabase = createClient(
 );
 
 const ROWS_PER_PAGE = 10;
+
+type Role = "super_admin" | "admin" | "reviewer";
+
+type TeamMember = {
+  user_id: string;
+  role: Role;
+  email?: string;
+};
 
 type Candidate = {
   id: string;
@@ -52,23 +60,16 @@ type Assignment = {
 
 async function openPdf(path: string | null | undefined) {
   if (!path) return;
-  const { data, error } = await supabase.storage
-    .from("documents")
-    .createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) {
-    alert("Could not load PDF. Please try again.");
-    return;
-  }
+  const { data, error } = await supabase.storage.from("documents").createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) { alert("Could not load PDF."); return; }
   window.open(data.signedUrl, "_blank");
 }
 
 function PdfButton({ path, label }: { path: string | null | undefined; label: string }) {
   if (!path) return null;
   return (
-    <button
-      onClick={() => openPdf(path)}
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-all"
-    >
+    <button onClick={() => openPdf(path)}
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-all">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
       {label}
     </button>
@@ -77,16 +78,29 @@ function PdfButton({ path, label }: { path: string | null | undefined; label: st
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; dot: string; text: string }> = {
-    selected:          { bg: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",  dot: "bg-emerald-500", text: "Selected" },
-    rejected:          { bg: "bg-red-50 text-red-600 ring-1 ring-red-200",              dot: "bg-red-500",     text: "Rejected" },
-    applied:           { bg: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",        dot: "bg-amber-400",   text: "Applied" },
-    "interview rejected": { bg: "bg-orange-50 text-orange-700 ring-1 ring-orange-200", dot: "bg-orange-400",  text: "Interview Rejected" },
+    selected: { bg: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: "bg-emerald-500", text: "Selected" },
+    rejected: { bg: "bg-red-50 text-red-600 ring-1 ring-red-200", dot: "bg-red-500", text: "Rejected" },
+    applied: { bg: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", dot: "bg-amber-400", text: "Applied" },
+    "interview rejected": { bg: "bg-orange-50 text-orange-700 ring-1 ring-orange-200", dot: "bg-orange-400", text: "Interview Rejected" },
   };
   const s = map[status?.toLowerCase()] || { bg: "bg-slate-100 text-slate-600 ring-1 ring-slate-200", dot: "bg-slate-400", text: status };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${s.bg}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
       {s.text.charAt(0).toUpperCase() + s.text.slice(1)}
+    </span>
+  );
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const map: Record<string, string> = {
+    super_admin: "bg-violet-100 text-violet-700 ring-1 ring-violet-200",
+    admin: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+    reviewer: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${map[role] || map.reviewer}`}>
+      {role.replace("_", " ")}
     </span>
   );
 }
@@ -100,7 +114,7 @@ function ScoreRing({ score, size = 56 }: { score: number; size?: number }) {
     <svg width={size} height={size} className="-rotate-90">
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth="4" />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="4"
-        strokeDasharray={`${fill} ${circ}`} strokeLinecap="round" style={{ transition: "stroke-dasharray 0.6s ease" }} />
+        strokeDasharray={`${fill} ${circ}`} strokeLinecap="round" />
     </svg>
   );
 }
@@ -111,13 +125,13 @@ function TimelineStep({ icon, title, done, last = false, children }: {
   return (
     <div className="flex gap-4">
       <div className="flex flex-col items-center">
-        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm flex-shrink-0
           ${done ? "bg-violet-600 text-white shadow-md shadow-violet-200" : "bg-slate-100 text-slate-400"}`}>
           {icon}
         </div>
         {!last && <div className={`w-px flex-1 mt-2 mb-2 ${done ? "bg-violet-200" : "bg-slate-100"}`} />}
       </div>
-      <div className={`flex-1 pb-6 ${last ? "" : ""}`}>
+      <div className="flex-1 pb-6">
         <p className={`text-sm font-semibold mb-2 ${done ? "text-slate-800" : "text-slate-400"}`}>{title}</p>
         <div className={`rounded-xl p-4 text-sm ${done ? "bg-slate-50 border border-slate-100" : "bg-slate-50/50 border border-slate-100/50"}`}>
           {children}
@@ -132,37 +146,22 @@ function AssignmentSection({ assignment, candidate }: { assignment: Assignment; 
   return (
     <div className="space-y-2">
       {assignment.assignment_title && (
-        <div className="flex justify-between">
-          <span className="text-slate-500">Title</span>
-          <span className="font-medium text-slate-800">{assignment.assignment_title}</span>
-        </div>
+        <div className="flex justify-between"><span className="text-slate-500">Title</span><span className="font-medium text-slate-800">{assignment.assignment_title}</span></div>
       )}
-      <div className="flex justify-between">
-        <span className="text-slate-500">Status</span>
-        <span className="font-medium text-slate-800 capitalize">{assignment.status}</span>
-      </div>
+      <div className="flex justify-between"><span className="text-slate-500">Status</span><span className="font-medium text-slate-800 capitalize">{assignment.status}</span></div>
       {assignment.submitted_github && (
         <div className="flex justify-between items-center">
           <span className="text-slate-500">GitHub</span>
-          <a href={assignment.submitted_github} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-800 font-medium text-xs">
-            View Repo →
-          </a>
+          <a href={assignment.submitted_github} target="_blank" rel="noreferrer" className="text-violet-600 hover:text-violet-800 font-medium text-xs">View Repo →</a>
         </div>
       )}
       {assignment.submitted_at && (
-        <div className="flex justify-between">
-          <span className="text-slate-500">Submitted</span>
-          <span className="font-medium text-slate-800">
-            {new Date(assignment.submitted_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}
-          </span>
+        <div className="flex justify-between"><span className="text-slate-500">Submitted</span>
+          <span className="font-medium text-slate-800">{new Date(assignment.submitted_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}</span>
         </div>
       )}
       {assignment.review_score !== null && (
-        <div className="flex justify-between">
-          <span className="text-slate-500">Score</span>
-          <span className="font-semibold text-slate-800">{assignment.review_score}/100</span>
-        </div>
+        <div className="flex justify-between"><span className="text-slate-500">Score</span><span className="font-semibold text-slate-800">{assignment.review_score}/100</span></div>
       )}
       {assignment.explanation && (
         <div className="mt-3 pt-3 border-t border-slate-100">
@@ -170,17 +169,14 @@ function AssignmentSection({ assignment, candidate }: { assignment: Assignment; 
           <p className="text-slate-700 text-sm leading-relaxed">{assignment.explanation}</p>
         </div>
       )}
-      <div className="flex gap-2 mt-2 flex-wrap">
-        <PdfButton path={candidate.assignment_pdf_path} label="Assignment PDF" />
-      </div>
+      <div className="flex gap-2 mt-2"><PdfButton path={candidate.assignment_pdf_path} label="Assignment PDF" /></div>
       {assignment.assignment_text && (
         <div className="mt-2">
-          <button onClick={() => setExpanded(!expanded)}
-            className="text-violet-600 hover:text-violet-800 text-xs font-medium flex items-center gap-1">
+          <button onClick={() => setExpanded(!expanded)} className="text-violet-600 hover:text-violet-800 text-xs font-medium">
             {expanded ? "▲ Hide" : "▼ View Full Assignment"}
           </button>
           {expanded && (
-            <div className="mt-3 bg-white border border-slate-200 rounded-lg p-4 text-xs text-slate-700 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed font-mono">
+            <div className="mt-3 bg-white border border-slate-200 rounded-lg p-4 text-xs text-slate-700 whitespace-pre-wrap max-h-64 overflow-y-auto font-mono">
               {assignment.assignment_text}
             </div>
           )}
@@ -190,31 +186,24 @@ function AssignmentSection({ assignment, candidate }: { assignment: Assignment; 
   );
 }
 
-function CandidateProfile({ candidate: initialCandidate, assignment, onBack, onStatusChange }: {
-  candidate: Candidate;
-  assignment: Assignment | null;
-  onBack: () => void;
-  onStatusChange: (id: string, status: string) => void;
+function CandidateProfile({ candidate: init, assignment, onBack, onStatusChange, userRole }: {
+  candidate: Candidate; assignment: Assignment | null; onBack: () => void;
+  onStatusChange: (id: string, status: string) => void; userRole: Role;
 }) {
-  const [candidate, setCandidate] = useState(initialCandidate);
+  const [candidate, setCandidate] = useState(init);
   const [updating, setUpdating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const canEdit = userRole === "super_admin" || userRole === "admin";
 
   const skills = typeof candidate.skills === "string"
-    ? candidate.skills.replace(/[\[\]"]/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+    ? candidate.skills.replace(/[\[\]"]/g, "").split(",").map(s => s.trim()).filter(Boolean)
     : candidate.skills || [];
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   const updateStatus = async (status: string) => {
     setUpdating(true);
-    const { error } = await supabase
-      .from("candidates")
-      .update({ status, manual_override: true })
-      .eq("id", candidate.id);
+    const { error } = await supabase.from("candidates").update({ status, manual_override: true }).eq("id", candidate.id);
     if (!error) {
       setCandidate(prev => ({ ...prev, status, manual_override: true }));
       onStatusChange(candidate.id, status);
@@ -225,29 +214,22 @@ function CandidateProfile({ candidate: initialCandidate, assignment, onBack, onS
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl animate-in slide-in-from-top-2">
+        <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl">
           ✓ {toast}
         </div>
       )}
-
-      {/* Top bar */}
       <div className="bg-white border-b border-slate-100 px-6 py-3 flex items-center gap-3 sticky top-0 z-40">
-        <button onClick={onBack}
-          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 transition text-sm font-medium">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 transition text-sm font-medium">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6"/></svg>
           All Candidates
         </button>
         <span className="text-slate-200">/</span>
         <span className="text-sm text-slate-800 font-semibold">{candidate.name}</span>
-        <div className="ml-auto">
-          <StatusBadge status={candidate.status} />
-        </div>
+        <div className="ml-auto"><StatusBadge status={candidate.status} /></div>
       </div>
 
       <div className="max-w-4xl mx-auto p-6 space-y-5">
-        {/* Hero Card */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="h-2 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500" />
           <div className="p-6">
@@ -263,106 +245,83 @@ function CandidateProfile({ candidate: initialCandidate, assignment, onBack, onS
                 </div>
               </div>
 
-              {/* HR Action Buttons */}
-              {!candidate.manual_override ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-slate-400 mr-1">HR Decision:</span>
-                  <button
-                    onClick={() => updateStatus("selected")}
-                    disabled={updating || candidate.status === "selected"}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition disabled:opacity-40 shadow-sm"
-                  >
-                    ✓ Select
-                  </button>
-                  <button
-                    onClick={() => updateStatus("rejected")}
-                    disabled={updating || candidate.status === "rejected"}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition disabled:opacity-40 shadow-sm"
-                  >
-                    ✕ Reject
-                  </button>
-                  <button
-                    onClick={() => updateStatus("applied")}
-                    disabled={updating || candidate.status === "applied"}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition disabled:opacity-40"
-                  >
-                    ↩ Reset
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-violet-50 text-violet-600 px-3 py-1.5 rounded-full font-medium ring-1 ring-violet-200">
-                    🔒 Manual Override Active
-                  </span>
-                  <button
-                    onClick={() => updateStatus("applied")}
-                    disabled={updating}
-                    className="text-xs text-slate-500 hover:text-slate-700 underline transition"
-                  >
-                    Undo
-                  </button>
-                </div>
+              {/* HR Buttons — sirf admin/super_admin */}
+              {canEdit && (
+                !candidate.manual_override ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-400 mr-1">HR Decision:</span>
+                    <button onClick={() => updateStatus("selected")} disabled={updating || candidate.status === "selected"}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition disabled:opacity-40 shadow-sm">
+                      ✓ Select
+                    </button>
+                    <button onClick={() => updateStatus("rejected")} disabled={updating || candidate.status === "rejected"}
+                      className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition disabled:opacity-40 shadow-sm">
+                      ✕ Reject
+                    </button>
+                    <button onClick={() => updateStatus("applied")} disabled={updating || candidate.status === "applied"}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition disabled:opacity-40">
+                      ↩ Reset
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-violet-50 text-violet-600 px-3 py-1.5 rounded-full font-medium ring-1 ring-violet-200">🔒 Manual Override</span>
+                    <button onClick={() => updateStatus("applied")} disabled={updating}
+                      className="text-xs text-slate-500 hover:text-slate-700 underline transition">Undo</button>
+                  </div>
+                )
               )}
             </div>
 
-            {/* Score Cards */}
             <div className="mt-6 grid grid-cols-3 gap-4">
               {[
-                { label: "CV Score", value: candidate.score, show: true },
-                { label: "Interview", value: candidate.interview_score, show: true },
-                { label: "Experience", value: candidate.experience && candidate.experience !== "0" ? candidate.experience : null, show: true, isText: true },
+                { label: "CV Score", value: candidate.score, isText: false },
+                { label: "Interview", value: candidate.interview_score, isText: false },
+                { label: "Experience", value: candidate.experience && candidate.experience !== "0" ? candidate.experience : null, isText: true },
               ].map((item, i) => (
                 <div key={i} className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
                   {item.isText ? (
-                    <p className="text-2xl font-bold text-slate-800">{item.value ?? "—"}</p>
-                  ) : (
+                    <p className="text-2xl font-bold text-slate-800 py-2">{item.value ?? "—"}</p>
+                  ) : item.value !== null && item.value !== undefined ? (
                     <div className="flex flex-col items-center">
-                      {item.value !== null && item.value !== undefined ? (
-                        <div className="relative">
-                          <ScoreRing score={item.value as number} />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-sm font-bold text-slate-800">{item.value}</span>
-                          </div>
+                      <div className="relative">
+                        <ScoreRing score={item.value as number} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-sm font-bold text-slate-800">{item.value}</span>
                         </div>
-                      ) : (
-                        <p className="text-2xl font-bold text-slate-300 py-3">—</p>
-                      )}
+                      </div>
                     </div>
+                  ) : (
+                    <p className="text-2xl font-bold text-slate-300 py-3">—</p>
                   )}
                   <p className="text-xs text-slate-500 mt-1">{item.label}</p>
                 </div>
               ))}
             </div>
 
-            {/* Info Grid */}
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div className="mt-4 grid grid-cols-2 gap-4">
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                 <p className="text-slate-400 text-xs mb-1">Education</p>
-                <p className="text-slate-800 font-medium text-sm leading-snug">{candidate.education || "—"}</p>
+                <p className="text-slate-800 font-medium text-sm">{candidate.education || "—"}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                 <p className="text-slate-400 text-xs mb-1">Applied On</p>
-                <p className="text-slate-800 font-medium">
+                <p className="text-slate-800 font-medium text-sm">
                   {new Date(candidate.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "long", year: "numeric" })}
                 </p>
               </div>
             </div>
 
-            {/* Skills */}
             {skills.length > 0 && (
               <div className="mt-4">
                 <p className="text-slate-400 text-xs mb-2">Skills</p>
                 <div className="flex flex-wrap gap-1.5">
                   {skills.map((skill, i) => (
-                    <span key={i} className="px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium border border-violet-100">
-                      {skill}
-                    </span>
+                    <span key={i} className="px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium border border-violet-100">{skill}</span>
                   ))}
                 </div>
               </div>
             )}
-
-            {/* CV Button */}
             <div className="mt-4 flex gap-2">
               <PdfButton path={candidate.cv_path} label="View CV" />
               <PdfButton path={candidate.evaluation_pdf_path} label="Evaluation Report" />
@@ -370,87 +329,246 @@ function CandidateProfile({ candidate: initialCandidate, assignment, onBack, onS
           </div>
         </div>
 
-        {/* Application Journey */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <h2 className="font-bold text-slate-800 text-base mb-6 flex items-center gap-2">
             <span className="w-6 h-6 bg-violet-100 rounded-lg flex items-center justify-center text-violet-600 text-xs">▶</span>
             Application Journey
           </h2>
-
           <TimelineStep icon="📄" title="CV Submitted" done={true}>
-            <div className="flex justify-between text-slate-600">
-              <span>CV Score</span>
-              <span className="font-semibold text-slate-800">{candidate.score}/100</span>
-            </div>
-            <div className="flex justify-between text-slate-600 mt-1">
-              <span>Applied</span>
-              <span className="font-medium text-slate-800">
-                {new Date(candidate.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}
-              </span>
+            <div className="flex justify-between text-slate-600"><span>CV Score</span><span className="font-semibold text-slate-800">{candidate.score}/100</span></div>
+            <div className="flex justify-between text-slate-600 mt-1"><span>Applied</span>
+              <span className="font-medium text-slate-800">{new Date(candidate.created_at).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi" })}</span>
             </div>
           </TimelineStep>
-
           <TimelineStep icon="🎯" title="AI Interview" done={candidate.interview_score !== null}>
-            {candidate.interview_score !== null ? (
-              <div className="flex justify-between text-slate-600">
-                <span>Score</span>
-                <span className="font-semibold text-slate-800">{candidate.interview_score}/100</span>
-              </div>
-            ) : <span className="text-slate-400 text-sm">Interview not yet completed</span>}
+            {candidate.interview_score !== null
+              ? <div className="flex justify-between text-slate-600"><span>Score</span><span className="font-semibold text-slate-800">{candidate.interview_score}/100</span></div>
+              : <span className="text-slate-400 text-sm">Interview not yet completed</span>}
           </TimelineStep>
-
           <TimelineStep icon="💻" title="Technical Assignment" done={assignment !== null}>
-            {assignment
-              ? <AssignmentSection assignment={assignment} candidate={candidate} />
-              : <span className="text-slate-400 text-sm">Assignment not yet sent</span>
-            }
+            {assignment ? <AssignmentSection assignment={assignment} candidate={candidate} /> : <span className="text-slate-400 text-sm">Assignment not yet sent</span>}
           </TimelineStep>
-
           <TimelineStep icon="📅" title="Final Interview" done={candidate.cal_booking_status === "booked"} last={true}>
             {candidate.cal_booking_status === "booked" ? (
               <div className="space-y-1 text-slate-600">
-                <div className="flex justify-between">
-                  <span>Date</span>
-                  <span className="font-medium text-slate-800">
-                    {candidate.cal_booking_date
-                      ? new Date(candidate.cal_booking_date).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "long" })
-                      : "—"}
-                  </span>
+                <div className="flex justify-between"><span>Date</span>
+                  <span className="font-medium text-slate-800">{candidate.cal_booking_date ? new Date(candidate.cal_booking_date).toLocaleDateString("en-PK", { timeZone: "Asia/Karachi", day: "numeric", month: "long" }) : "—"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Time</span>
-                  <span className="font-medium text-slate-800">{candidate.cal_booking_time || "—"}</span>
-                </div>
+                <div className="flex justify-between"><span>Time</span><span className="font-medium text-slate-800">{candidate.cal_booking_time || "—"}</span></div>
               </div>
-            ) : candidate.cal_booking_status === "pending" ? (
-              <span className="text-amber-600 text-sm">Link sent — awaiting booking</span>
-            ) : (
-              <span className="text-slate-400 text-sm">Not yet scheduled</span>
-            )}
+            ) : candidate.cal_booking_status === "pending"
+              ? <span className="text-amber-600 text-sm">Link sent — awaiting booking</span>
+              : <span className="text-slate-400 text-sm">Not yet scheduled</span>}
           </TimelineStep>
         </div>
 
-        {/* Final Decision */}
         <div className={`rounded-2xl border p-5 flex items-center justify-between
-          ${candidate.status === "selected" ? "bg-emerald-50 border-emerald-200" :
-            candidate.status === "rejected" ? "bg-red-50 border-red-200" :
-            "bg-slate-50 border-slate-200"}`}>
+          ${candidate.status === "selected" ? "bg-emerald-50 border-emerald-200" : candidate.status === "rejected" ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Final Decision</p>
             <StatusBadge status={candidate.status} />
           </div>
-          {candidate.manual_override && (
-            <span className="text-xs text-slate-500">Set manually by HR</span>
-          )}
+          {candidate.manual_override && <span className="text-xs text-slate-500">Set manually by HR</span>}
         </div>
       </div>
     </div>
   );
 }
 
+// ── Team Management Page ──────────────────────────────────────────────────────
+function TeamPage({ currentUserId, userRole }: { currentUserId: string; userRole: Role }) {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "reviewer">("reviewer");
+  const [loading, setLoading] = useState(true);
+  const [inviting, setInviting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const isSuperAdmin = userRole === "super_admin";
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      setLoading(true);
+      const { data } = await supabase.from("user_roles").select("user_id, role");
+      if (data) {
+        const withEmails = await Promise.all(
+          data.map(async (m) => {
+            const { data: { user } } = await supabase.auth.admin.getUserById(m.user_id).catch(() => ({ data: { user: null } }));
+            return { ...m, email: user?.email || m.user_id };
+          })
+        );
+        setMembers(withEmails as TeamMember[]);
+      }
+      setLoading(false);
+    };
+    fetchMembers();
+  }, []);
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(inviteEmail);
+    if (error || !data?.user) {
+      showToast("Invite failed: " + (error?.message || "Unknown error"));
+      setInviting(false);
+      return;
+    }
+    await supabase.from("user_roles").insert({ user_id: data.user.id, role: inviteRole });
+    setMembers(prev => [...prev, { user_id: data.user.id, role: inviteRole, email: inviteEmail }]);
+    setInviteEmail("");
+    showToast(`Invite sent to ${inviteEmail}`);
+    setInviting(false);
+  };
+
+  const handleRemove = async (userId: string) => {
+    if (userId === currentUserId) { showToast("You cannot remove yourself!"); return; }
+    await supabase.from("user_roles").delete().eq("user_id", userId);
+    setMembers(prev => prev.filter(m => m.user_id !== userId));
+    showToast("Member removed");
+  };
+
+  return (
+    <div className="p-8 max-w-3xl">
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl">
+          {toast}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h1 className="text-lg font-bold text-slate-800">Team Management</h1>
+        <p className="text-xs text-slate-400 mt-0.5">Manage who has access to this dashboard</p>
+      </div>
+
+      {/* Invite — sirf super_admin */}
+      {isSuperAdmin && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-5">
+          <h2 className="text-sm font-bold text-slate-800 mb-4">Invite New Member</h2>
+          <div className="flex gap-2 flex-wrap">
+            <input
+              type="email"
+              placeholder="Email address"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleInvite()}
+              className="flex-1 min-w-0 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+            <select
+              value={inviteRole}
+              onChange={e => setInviteRole(e.target.value as "admin" | "reviewer")}
+              className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 bg-white focus:outline-none"
+            >
+              <option value="admin">Admin</option>
+              <option value="reviewer">Reviewer</option>
+            </select>
+            <button
+              onClick={handleInvite}
+              disabled={inviting || !inviteEmail.trim()}
+              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-xl transition disabled:opacity-40 shadow-sm"
+            >
+              {inviting ? "Sending..." : "Send Invite"}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">User will receive an email to set their password.</p>
+        </div>
+      )}
+
+      {/* Members List */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100">
+          <h2 className="text-sm font-bold text-slate-800">Team Members ({members.length})</h2>
+        </div>
+        {loading ? (
+          <div className="py-12 flex justify-center">
+            <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Member</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Role</th>
+                {isSuperAdmin && <th className="px-5 py-3" />}
+              </tr>
+            </thead>
+            <tbody>
+              {members.map(member => (
+                <tr key={member.user_id} className="border-b border-slate-50">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                        {(member.email || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{member.email}</p>
+                        {member.user_id === currentUserId && <p className="text-xs text-violet-500">You</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5"><RoleBadge role={member.role} /></td>
+                  {isSuperAdmin && (
+                    <td className="px-5 py-3.5 text-right">
+                      {member.user_id !== currentUserId && member.role !== "super_admin" && (
+                        <button
+                          onClick={() => handleRemove(member.user_id)}
+                          className="text-xs text-red-400 hover:text-red-600 font-medium transition px-2 py-1 rounded-lg hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Permissions Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mt-5 overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100">
+          <h2 className="text-sm font-bold text-slate-800">Role Permissions</h2>
+        </div>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-5 py-3 text-slate-500 font-semibold">Permission</th>
+              <th className="text-center px-4 py-3 text-violet-600 font-semibold">Super Admin</th>
+              <th className="text-center px-4 py-3 text-blue-600 font-semibold">Admin</th>
+              <th className="text-center px-4 py-3 text-slate-500 font-semibold">Reviewer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ["View Dashboard & Candidates", true, true, true],
+              ["Change Candidate Status", true, true, false],
+              ["Invite Team Members", true, false, false],
+              ["Remove Team Members", true, false, false],
+              ["View Team Members", true, true, false],
+            ].map(([perm, sa, ad, rv], i) => (
+              <tr key={i} className="border-b border-slate-50">
+                <td className="px-5 py-3 text-slate-600">{perm as string}</td>
+                {[sa, ad, rv].map((has, j) => (
+                  <td key={j} className="px-4 py-3 text-center">
+                    {has ? <span className="text-emerald-500 font-bold">✓</span> : <span className="text-slate-200 font-bold">✕</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<Role>("reviewer");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -458,7 +576,7 @@ export default function DashboardPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "candidates">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "candidates" | "team">("dashboard");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -470,7 +588,8 @@ export default function DashboardPage() {
     if (error || !data.user) { setLoginError("Invalid email or password"); return; }
     const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id).single();
     if (!roleData) { setLoginError("Access denied — no role assigned"); return; }
-    setUserRole(roleData.role);
+    setUserRole(roleData.role as Role);
+    setCurrentUserId(data.user.id);
     setAuthenticated(true);
   };
 
@@ -479,7 +598,7 @@ export default function DashboardPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id).single();
-        if (roleData) { setUserRole(roleData.role); setAuthenticated(true); }
+        if (roleData) { setUserRole(roleData.role as Role); setCurrentUserId(session.user.id); setAuthenticated(true); }
       }
       setLoading(false);
     };
@@ -501,7 +620,7 @@ export default function DashboardPage() {
     fetchData();
   }, [authenticated]);
 
-  const getAssignment = (id: string) => assignments.find((a) => a.candidate_id === id) || null;
+  const getAssignment = (id: string) => assignments.find(a => a.candidate_id === id) || null;
 
   const pipelineData = useMemo(() => [
     { stage: "Applied", count: candidates.length },
@@ -529,10 +648,7 @@ export default function DashboardPage() {
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: candidates.length };
-    candidates.forEach(c => {
-      const s = c.status?.toLowerCase() || "unknown";
-      counts[s] = (counts[s] || 0) + 1;
-    });
+    candidates.forEach(c => { const s = c.status?.toLowerCase() || "unknown"; counts[s] = (counts[s] || 0) + 1; });
     return counts;
   }, [candidates]);
 
@@ -543,11 +659,10 @@ export default function DashboardPage() {
       const term = searchTerm.trim().toLowerCase();
       result = result.filter(c => c.name?.toLowerCase().includes(term) || c.email?.toLowerCase().includes(term));
     }
-    result = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       return sortOrder === "newest" ? diff : -diff;
     });
-    return result;
   }, [candidates, statusFilter, searchTerm, sortOrder]);
 
   useEffect(() => { setCurrentPage(1); }, [statusFilter, searchTerm, sortOrder]);
@@ -568,7 +683,6 @@ export default function DashboardPage() {
     return ((candidates.filter(c => c.status === "selected").length / candidates.length) * 100).toFixed(0);
   }, [candidates]);
 
-  // LOGIN
   if (!authenticated && !loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 flex items-center justify-center p-6">
@@ -582,30 +696,16 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
             {loginError && (
-              <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
-                {loginError}
-              </div>
+              <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">{loginError}</div>
             )}
             <div className="space-y-3">
-              <input
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-              />
-              <button
-                onClick={handleLogin}
-                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white py-3 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-violet-900/50 mt-1"
-              >
+              <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm" />
+              <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleLogin()}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm" />
+              <button onClick={handleLogin}
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white py-3 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-violet-900/50 mt-1">
                 Sign In
               </button>
             </div>
@@ -628,6 +728,7 @@ export default function DashboardPage() {
         candidate={selectedCandidate}
         assignment={getAssignment(selectedCandidate.id)}
         onBack={() => setSelectedCandidate(null)}
+        userRole={userRole}
         onStatusChange={(id, status) => {
           setCandidates(prev => prev.map(c => c.id === id ? { ...c, status, manual_override: true } : c));
           setSelectedCandidate(prev => prev ? { ...prev, status, manual_override: true } : null);
@@ -636,82 +737,74 @@ export default function DashboardPage() {
     );
   }
 
+  const navItems = [
+    { key: "dashboard", label: "Overview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+    { key: "candidates", label: "Candidates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+    ...(userRole === "super_admin" || userRole === "admin" ? [{ key: "team", label: "Team", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg> }] : []),
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Sidebar + Main layout */}
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-56 min-h-screen bg-white border-r border-slate-100 fixed left-0 top-0 flex flex-col">
-          <div className="p-5 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">RT Dashboard</p>
-                <p className="text-xs text-slate-400 capitalize">{userRole}</p>
-              </div>
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* Sidebar */}
+      <div className="w-56 min-h-screen bg-white border-r border-slate-100 fixed left-0 top-0 flex flex-col">
+        <div className="p-5 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-800">RT Dashboard</p>
+              <RoleBadge role={userRole} />
             </div>
           </div>
-
-          <nav className="p-3 flex-1">
-            {[
-              { key: "dashboard", label: "Overview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
-              { key: "candidates", label: "Candidates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as "dashboard" | "candidates")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-1
-                  ${activeTab === tab.key
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}
-              >
-                <span className={activeTab === tab.key ? "text-violet-600" : ""}>{tab.icon}</span>
-                {tab.label}
-                {tab.key === "candidates" && (
-                  <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-md font-semibold
-                    ${activeTab === tab.key ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-500"}`}>
-                    {candidates.length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-
-          <div className="p-3 border-t border-slate-100">
-            <button
-              onClick={async () => { await supabase.auth.signOut(); setAuthenticated(false); setUserRole(null); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all font-medium"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Sign Out
+        </div>
+        <nav className="p-3 flex-1">
+          {navItems.map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key as typeof activeTab)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mb-1
+                ${activeTab === tab.key ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}>
+              <span className={activeTab === tab.key ? "text-violet-600" : ""}>{tab.icon}</span>
+              {tab.label}
+              {tab.key === "candidates" && (
+                <span className={`ml-auto text-xs px-1.5 py-0.5 rounded-md font-semibold ${activeTab === tab.key ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-500"}`}>
+                  {candidates.length}
+                </span>
+              )}
             </button>
-          </div>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-slate-100">
+          <button onClick={async () => { await supabase.auth.signOut(); setAuthenticated(false); }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all font-medium">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div className="ml-56 flex-1">
+        <div className="bg-white border-b border-slate-100 px-8 py-4 sticky top-0 z-30">
+          <h1 className="text-lg font-bold text-slate-800">
+            {activeTab === "dashboard" ? "Pipeline Overview" : activeTab === "candidates" ? "All Candidates" : "Team Management"}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {activeTab === "dashboard" ? "Real-time recruitment analytics" : activeTab === "candidates" ? `${candidates.length} candidates total` : "Manage access and roles"}
+          </p>
         </div>
 
-        {/* Main Content */}
-        <div className="ml-56 flex-1 min-h-screen">
-          {/* Top Header */}
-          <div className="bg-white border-b border-slate-100 px-8 py-4 sticky top-0 z-30">
-            <h1 className="text-lg font-bold text-slate-800">
-              {activeTab === "dashboard" ? "Pipeline Overview" : "All Candidates"}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {activeTab === "dashboard" ? "Real-time recruitment analytics" : `${candidates.length} candidates total`}
-            </p>
-          </div>
-
+        {activeTab === "team" ? (
+          <TeamPage currentUserId={currentUserId} userRole={userRole} />
+        ) : (
           <div className="p-8">
             {activeTab === "dashboard" && (
               <>
-                {/* Stat Cards */}
                 <div className="grid grid-cols-4 gap-4 mb-6">
                   {[
-                    { label: "Total Applicants", value: candidates.length, sub: "All time", color: "violet", icon: "👥" },
-                    { label: "Avg CV Score", value: avgScore, sub: "Out of 100", color: "blue", icon: "📊" },
-                    { label: "Selected", value: candidates.filter(c => c.status === "selected").length, sub: `${conversionRate}% conversion`, color: "emerald", icon: "✅" },
-                    { label: "Rejected", value: candidates.filter(c => c.status === "rejected").length, sub: "Screened out", color: "red", icon: "❌" },
+                    { label: "Total Applicants", value: candidates.length, sub: "All time", icon: "👥" },
+                    { label: "Avg CV Score", value: avgScore, sub: "Out of 100", icon: "📊" },
+                    { label: "Selected", value: candidates.filter(c => c.status === "selected").length, sub: `${conversionRate}% conversion`, icon: "✅" },
+                    { label: "Rejected", value: candidates.filter(c => c.status === "rejected").length, sub: "Screened out", icon: "❌" },
                   ].map((stat, i) => (
                     <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                       <div className="flex items-center justify-between mb-3">
@@ -723,8 +816,6 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-
-                {/* Charts */}
                 <div className="grid grid-cols-2 gap-5 mb-5">
                   <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                     <h3 className="font-bold text-slate-800 text-sm mb-4">Recruitment Pipeline</h3>
@@ -738,14 +829,12 @@ export default function DashboardPage() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-
                   <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                     <h3 className="font-bold text-slate-800 text-sm mb-4">Decision Breakdown</h3>
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie data={pieData} dataKey="value" outerRadius={85} innerRadius={48}
-                          label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""}
-                          labelLine={false} fontSize={11}>
+                          label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""} labelLine={false} fontSize={11}>
                           {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                         </Pie>
                         <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
@@ -753,7 +842,6 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
                 <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                   <h3 className="font-bold text-slate-800 text-sm mb-4">Applications Over Time</h3>
                   <ResponsiveContainer width="100%" height={200}>
@@ -771,23 +859,11 @@ export default function DashboardPage() {
 
             {activeTab === "candidates" && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-                {/* Controls */}
                 <div className="p-5 border-b border-slate-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="flex gap-1.5 flex-wrap">
-                    {[
-                      { key: "all", label: "All" },
-                      { key: "applied", label: "Applied" },
-                      { key: "selected", label: "Selected" },
-                      { key: "rejected", label: "Rejected" },
-                    ].map(tab => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setStatusFilter(tab.key)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition
-                          ${statusFilter === tab.key
-                            ? "bg-violet-600 text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                      >
+                    {[{ key: "all", label: "All" }, { key: "applied", label: "Applied" }, { key: "selected", label: "Selected" }, { key: "rejected", label: "Rejected" }].map(tab => (
+                      <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${statusFilter === tab.key ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                         {tab.label} <span className="opacity-70">({statusCounts[tab.key] || 0})</span>
                       </button>
                     ))}
@@ -795,26 +871,16 @@ export default function DashboardPage() {
                   <div className="flex gap-2">
                     <div className="relative">
                       <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                      <input
-                        type="text"
-                        placeholder="Search candidates..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 w-48 focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      />
+                      <input type="text" placeholder="Search candidates..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                        className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 w-48 focus:outline-none focus:ring-2 focus:ring-violet-300" />
                     </div>
-                    <select
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-                      className="border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 bg-white focus:outline-none"
-                    >
+                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value as "newest" | "oldest")}
+                      className="border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 bg-white focus:outline-none">
                       <option value="newest">Newest first</option>
                       <option value="oldest">Oldest first</option>
                     </select>
                   </div>
                 </div>
-
-                {/* Table */}
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-slate-100">
@@ -826,15 +892,11 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedCandidates.length === 0 ? (
-                      <tr><td colSpan={5} className="py-16 text-center text-slate-400 text-sm">No candidates found.</td></tr>
-                    ) : (
-                      paginatedCandidates.map(candidate => (
-                        <tr
-                          key={candidate.id}
-                          onClick={() => setSelectedCandidate(candidate)}
-                          className="border-b border-slate-50 hover:bg-violet-50/50 cursor-pointer transition group"
-                        >
+                    {paginatedCandidates.length === 0
+                      ? <tr><td colSpan={5} className="py-16 text-center text-slate-400 text-sm">No candidates found.</td></tr>
+                      : paginatedCandidates.map(candidate => (
+                        <tr key={candidate.id} onClick={() => setSelectedCandidate(candidate)}
+                          className="border-b border-slate-50 hover:bg-violet-50/50 cursor-pointer transition group">
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -846,16 +908,12 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <StatusBadge status={candidate.status} />
-                          </td>
+                          <td className="px-5 py-3.5"><StatusBadge status={candidate.status} /></td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-2">
                               <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${candidate.score >= 70 ? "bg-emerald-500" : candidate.score >= 50 ? "bg-amber-400" : "bg-red-400"}`}
-                                  style={{ width: `${candidate.score}%` }}
-                                />
+                                <div className={`h-full rounded-full ${candidate.score >= 70 ? "bg-emerald-500" : candidate.score >= 50 ? "bg-amber-400" : "bg-red-400"}`}
+                                  style={{ width: `${candidate.score}%` }} />
                               </div>
                               <span className="text-xs font-semibold text-slate-700">{candidate.score}</span>
                             </div>
@@ -869,12 +927,9 @@ export default function DashboardPage() {
                             )}
                           </td>
                         </tr>
-                      ))
-                    )}
+                      ))}
                   </tbody>
                 </table>
-
-                {/* Pagination */}
                 {filteredCandidates.length > ROWS_PER_PAGE && (
                   <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 text-xs text-slate-500">
                     <span>Showing {(currentPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(currentPage * ROWS_PER_PAGE, filteredCandidates.length)} of {filteredCandidates.length}</span>
@@ -890,7 +945,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
