@@ -31,7 +31,7 @@ type Candidate = {
   cal_booking_time: string | null;
   cal_booking_status: string | null;
   cv_path: string | null;
-  evaluation_pdf_path: string | null;  
+  evaluation_pdf_path: string | null;
   assignment_pdf_path: string | null;
 };
 
@@ -49,15 +49,12 @@ type Assignment = {
   assignment_pdf_path: string | null;
 };
 
-// Generates a temporary signed URL for a private Supabase Storage object and opens it in a new tab
 async function openPdf(path: string | null | undefined) {
   if (!path) return;
   const { data, error } = await supabase.storage
     .from("documents")
-    .createSignedUrl(path, 3600); // valid for 1 hour
-
+    .createSignedUrl(path, 3600);
   if (error || !data?.signedUrl) {
-    console.error("Signed URL error:", error);
     alert("PDF load nahi ho saka. Please try again.");
     return;
   }
@@ -148,10 +145,7 @@ function AssignmentSection({ assignment, candidate }: { assignment: Assignment; 
           <p className="text-gray-700 mt-1">{assignment.explanation}</p>
         </div>
       )}
-
-      {/* Assignment PDF viewer button */}
       <PdfButton path={candidate.assignment_pdf_path} label="View Assignment PDF" />
-
       {assignment.assignment_text && (
         <div className="mt-3">
           <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
@@ -177,7 +171,6 @@ function CandidateProfile({ candidate, assignment, onBack }: {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <div className="bg-indigo-900 text-white px-6 py-4 flex items-center gap-4">
         <button onClick={onBack} className="flex items-center gap-2 text-indigo-200 hover:text-white transition text-sm font-medium">
           ← Back
@@ -187,7 +180,6 @@ function CandidateProfile({ candidate, assignment, onBack }: {
       </div>
 
       <div className="max-w-3xl mx-auto p-6">
-        {/* Candidate Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
@@ -245,7 +237,6 @@ function CandidateProfile({ candidate, assignment, onBack }: {
           )}
         </div>
 
-        {/* Timeline */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="font-bold text-gray-800 mb-6 text-lg">Application Journey</h2>
 
@@ -301,8 +292,12 @@ function CandidateProfile({ candidate, assignment, onBack }: {
 }
 
 export default function DashboardPage() {
+  // ✅ Sab hooks yahan - component ke andar
   const [authenticated, setAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,9 +308,26 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
-  const handleLogin = () => {
-    if (password === "admin123") setAuthenticated(true);
-    else alert("Invalid password");
+  // ✅ handleLogin bhi component ke andar
+  const handleLogin = async () => {
+    setLoginError("");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      setLoginError("Invalid email or password");
+      return;
+    }
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id)
+      .single();
+
+    if (!roleData) {
+      setLoginError("Access denied — no role assigned");
+      return;
+    }
+    setUserRole(roleData.role);
+    setAuthenticated(true);
   };
 
   useEffect(() => {
@@ -396,6 +408,7 @@ export default function DashboardPage() {
     return (candidates.reduce((s, c) => s + (c.score || 0), 0) / candidates.length).toFixed(1);
   }, [candidates]);
 
+  // ✅ Login Screen
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-indigo-950 flex items-center justify-center p-6">
@@ -407,15 +420,28 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-gray-800">Recruitment Tracker</h1>
             <p className="text-gray-500 text-sm mt-1">Sign in to access the dashboard</p>
           </div>
+          {loginError && (
+            <p className="text-red-500 text-sm text-center mb-4">{loginError}</p>
+          )}
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 mb-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
           <input
             type="password"
-            placeholder="Enter password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             className="w-full border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <button onClick={handleLogin} className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 font-semibold transition">
+          <button
+            onClick={handleLogin}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 font-semibold transition"
+          >
             Login
           </button>
         </div>
@@ -431,7 +457,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top Header */}
       <div className="bg-indigo-900 text-white px-6 py-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3 py-4">
@@ -441,7 +466,7 @@ export default function DashboardPage() {
               <p className="text-sm font-semibold">{activeTab === "dashboard" ? "Dashboard" : "Candidates"}</p>
             </div>
           </div>
-          <nav className="flex">
+          <nav className="flex items-center gap-4">
             {[
               { key: "dashboard", label: "Dashboard" },
               { key: "candidates", label: "Candidates" },
@@ -454,6 +479,14 @@ export default function DashboardPage() {
                 {tab.label}
               </button>
             ))}
+            {/* Role badge + Logout */}
+            <span className="text-xs bg-indigo-700 text-indigo-200 px-3 py-1 rounded-full capitalize">{userRole}</span>
+            <button
+              onClick={async () => { await supabase.auth.signOut(); setAuthenticated(false); setUserRole(null); }}
+              className="text-xs text-indigo-300 hover:text-white transition ml-2"
+            >
+              Logout
+            </button>
           </nav>
         </div>
       </div>
@@ -461,7 +494,6 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto p-6">
         {activeTab === "dashboard" && (
           <>
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
                 { label: "Total Candidates", value: candidates.length, icon: "👥" },
@@ -479,9 +511,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Pipeline */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-800 mb-4">Recruitment Pipeline</h2>
                 <ResponsiveContainer width="100%" height={250}>
@@ -495,7 +525,6 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Pie */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-800 mb-4">Final Decision</h2>
                 <ResponsiveContainer width="100%" height={250}>
@@ -509,7 +538,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Applications by Month */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-bold text-gray-800 mb-4">Applications by Month</h2>
               <ResponsiveContainer width="100%" height={250}>
@@ -528,7 +556,6 @@ export default function DashboardPage() {
 
         {activeTab === "candidates" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            {/* Controls */}
             <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
               <h2 className="font-bold text-gray-800 text-lg">All Candidates</h2>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -566,7 +593,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -603,7 +629,6 @@ export default function DashboardPage() {
               </table>
             </div>
 
-            {/* Pagination */}
             {filteredCandidates.length > ROWS_PER_PAGE && (
               <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
                 <span>Showing {(currentPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(currentPage * ROWS_PER_PAGE, filteredCandidates.length)} of {filteredCandidates.length}</span>
