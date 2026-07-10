@@ -292,6 +292,7 @@ function CandidateProfile({ candidate, assignment, onBack }: {
 }
 
 export default function DashboardPage() {
+  
   // ✅ Sab hooks yahan - component ke andar
   const [authenticated, setAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -330,6 +331,27 @@ export default function DashboardPage() {
     setAuthenticated(true);
   };
 
+  // ✅ NAYA - session persist karne ke liye
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .single();
+        if (roleData) {
+          setUserRole(roleData.role);
+          setAuthenticated(true);
+        }
+      }
+      setLoading(false);
+    };
+    checkSession();
+  }, []);
+
+  // ✅ PEHLE SE HAI - data fetch
   useEffect(() => {
     if (!authenticated) return;
     const fetchData = async () => {
