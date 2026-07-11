@@ -134,24 +134,51 @@ async function executeTool(name: string, args: Record<string, string>) {
     return `Failed to send assignment.`;
   }
 
-  if (name === "get_stats") {
-  const today = new Date().toISOString().split("T")[0]; // 2026-07-11
+if (name === "get_stats") {
+  const today = new Date().toISOString().split("T")[0];
   const [cRes, aRes] = await Promise.all([
     fetch(`${SUPABASE_URL}/rest/v1/candidates`, { headers }),
     fetch(`${SUPABASE_URL}/rest/v1/assignments`, { headers })
   ]);
-  const data: Record<string, unknown>[] = await cRes.json();
+  const candidates: Record<string, unknown>[] = await cRes.json();
   const assignments: Record<string, unknown>[] = await aRes.json();
+
   const stats = {
-    total_candidates: data.length,
-    applied_today: data.filter(c => (c.created_at as string)?.startsWith(today)).length,
-    applied: data.filter(c => c.status === "applied").length,
-    selected: data.filter(c => c.status === "selected").length,
-    rejected: data.filter(c => c.status === "rejected").length,
-    interviewed: data.filter(c => c.interview_score !== null).length,
-    assignments_sent: assignments.length,
-    avg_cv_score: data.length
-      ? (data.reduce((s, c) => s + ((c.score as number) || 0), 0) / data.length).toFixed(1)
+    // Basic
+    total_candidates: candidates.length,
+    applied_today: candidates.filter(c => (c.created_at as string)?.startsWith(today)).length,
+
+    // Status
+    status_applied: candidates.filter(c => c.status === "applied").length,
+    status_selected: candidates.filter(c => c.status === "selected").length,
+    status_rejected: candidates.filter(c => c.status === "rejected").length,
+
+    // Pipeline stages
+    cv_submitted: candidates.length,
+    interview_completed: candidates.filter(c => c.interview_score !== null).length,
+    interview_pending: candidates.filter(c => c.interview_score === null).length,
+    interview_passed: candidates.filter(c => c.interview_score !== null && (c.interview_score as number) >= 50).length,
+    interview_failed: candidates.filter(c => c.interview_score !== null && (c.interview_score as number) < 50).length,
+
+    // Assignment
+    assignment_sent: assignments.length,
+    assignment_submitted: assignments.filter(a => a.submitted_github !== null).length,
+    assignment_pending: assignments.filter(a => a.submitted_github === null).length,
+    assignment_passed: assignments.filter(a => a.review_score !== null && (a.review_score as number) >= 50).length,
+    assignment_failed: assignments.filter(a => a.review_score !== null && (a.review_score as number) < 50).length,
+
+    // Booking
+    final_interview_booked: candidates.filter(c => c.cal_booking_status === "booked").length,
+    final_interview_pending: candidates.filter(c => c.cal_booking_status === "pending").length,
+
+    // Scores
+    avg_cv_score: candidates.length
+      ? (candidates.reduce((s, c) => s + ((c.score as number) || 0), 0) / candidates.length).toFixed(1)
+      : 0,
+    avg_interview_score: candidates.filter(c => c.interview_score !== null).length
+      ? (candidates.filter(c => c.interview_score !== null)
+          .reduce((s, c) => s + ((c.interview_score as number) || 0), 0) /
+          candidates.filter(c => c.interview_score !== null).length).toFixed(1)
       : 0,
   };
   return JSON.stringify(stats);
