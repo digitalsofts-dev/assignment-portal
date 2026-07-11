@@ -43,7 +43,7 @@ async function callGemini(messages: Message[]): Promise<string> {
 
   const callApi = async (contents: unknown[]) => {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +55,9 @@ async function callGemini(messages: Message[]): Promise<string> {
         })
       }
     );
-    return res.json();
+   const data = await res.json();
+ console.log("Gemini:", res.status, data.error?.message || "OK");
+ return data;
   };
 
   let data = await callApi(conversation);
