@@ -1,3 +1,4 @@
+export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 import { MCP_TOOLS, executeMcpTool } from "../mcp/route";
@@ -42,7 +43,7 @@ async function callGemini(messages: Message[]): Promise<string> {
 
   const callApi = async (contents: unknown[]) => {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
