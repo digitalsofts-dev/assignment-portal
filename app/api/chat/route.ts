@@ -60,7 +60,7 @@ async function callGemini(messages: Message[]) {
   while (candidate?.content?.parts?.some((p: Record<string, unknown>) => p.functionCall) && maxIter > 0) {
     maxIter--;
     const calls = candidate.content.parts.filter((p: Record<string, unknown>) => p.functionCall);
-    conversation.push({ role: "model", parts: candidate.content.parts });
+    conversation.push({ role: "user", content: toolResults as unknown as string });
 
     const responses = await Promise.all(
       calls.map(async (part: { functionCall: { name: string; args: Record<string, string> } }) => {
