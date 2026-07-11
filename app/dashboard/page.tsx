@@ -619,7 +619,7 @@ function AssistantPage() {
             <p className="text-sm font-bold text-slate-800">HR Assistant</p>
             <p className="text-xs text-emerald-500 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
-              Online — Gemini 1.5 Flash
+              Online 
             </p>
           </div>
         </div>
@@ -669,7 +669,7 @@ function AssistantPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Kuch poochho ya koi kaam kaho... (Enter = send)"
+            placeholder="Ask me anything or give me a task... (Enter = send)"
             rows={1}
             className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
           />
@@ -678,7 +678,7 @@ function AssistantPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-2 text-center">AI mistakes kar sakta hai — important actions double check karo</p>
+        <p className="text-xs text-slate-400 mt-2 text-center">AI can make mistakes — always double check important actions</p>
       </div>
     </div>
   );

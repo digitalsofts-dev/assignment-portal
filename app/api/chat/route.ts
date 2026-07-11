@@ -135,26 +135,27 @@ async function executeTool(name: string, args: Record<string, string>) {
   }
 
   if (name === "get_stats") {
-    const [cRes, aRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/candidates`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/assignments`, { headers })
-    ]);
-    const data: Record<string, unknown>[] = await cRes.json();
-    const assignments: Record<string, unknown>[] = await aRes.json();
-    console.log("Stats - candidates:", data.length, "assignments:", assignments.length);
-    const stats = {
-      total_candidates: data.length,
-      applied: data.filter(c => c.status === "applied").length,
-      selected: data.filter(c => c.status === "selected").length,
-      rejected: data.filter(c => c.status === "rejected").length,
-      interviewed: data.filter(c => c.interview_score !== null).length,
-      assignments_sent: assignments.length,
-      avg_cv_score: data.length
-        ? (data.reduce((s, c) => s + ((c.score as number) || 0), 0) / data.length).toFixed(1)
-        : 0,
-    };
-    return JSON.stringify(stats);
-  }
+  const today = new Date().toISOString().split("T")[0]; // 2026-07-11
+  const [cRes, aRes] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/candidates`, { headers }),
+    fetch(`${SUPABASE_URL}/rest/v1/assignments`, { headers })
+  ]);
+  const data: Record<string, unknown>[] = await cRes.json();
+  const assignments: Record<string, unknown>[] = await aRes.json();
+  const stats = {
+    total_candidates: data.length,
+    applied_today: data.filter(c => (c.created_at as string)?.startsWith(today)).length,
+    applied: data.filter(c => c.status === "applied").length,
+    selected: data.filter(c => c.status === "selected").length,
+    rejected: data.filter(c => c.status === "rejected").length,
+    interviewed: data.filter(c => c.interview_score !== null).length,
+    assignments_sent: assignments.length,
+    avg_cv_score: data.length
+      ? (data.reduce((s, c) => s + ((c.score as number) || 0), 0) / data.length).toFixed(1)
+      : 0,
+  };
+  return JSON.stringify(stats);
+}
 
   return "Tool not found";
 }
@@ -178,6 +179,7 @@ You CAN help with:
 
 If asked anything outside recruitment, respond:
 "Sorry, I can only assist with recruitment-related questions."
+If multiple candidates have the same name, always ask for the email to confirm which candidate before taking any action.
 
 Always respond in English only.`;
 
