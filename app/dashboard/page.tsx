@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -564,6 +564,126 @@ function TeamPage({ currentUserId, userRole }: { currentUserId: string; userRole
   );
 }
 
+
+// ── Assistant Page ────────────────────────────────────────────────────────────
+function AssistantPage() {
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
+    {
+      role: "assistant",
+      content: "Assalam o Alaikum! Main aapka HR Assistant hoon. Candidates ke baare mein poochho, status update karo, ya assignment bhejne ko kaho. Kya madad kar sakta hoon?"
+    }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = { role: "user", content: input.trim() };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMsg] })
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Kuch masla aaya. Please try again." }]);
+    }
+    setLoading(false);
+  };
+
+  const suggestions = [
+    "Aaj kitne candidates apply kiye?",
+    "Sab selected candidates dikhao",
+    "Pipeline stats batao",
+    "Interview pending candidates kaun hain?",
+  ];
+
+  return (
+    <div className="h-[calc(100vh-73px)] flex flex-col">
+      <div className="px-8 py-5 border-b border-slate-100 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800">HR Assistant</p>
+            <p className="text-xs text-emerald-500 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
+              Online — Gemini 1.5 Flash
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4 bg-slate-50">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            {msg.role === "assistant" && (
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 mt-0.5">AI</div>
+            )}
+            <div className={`max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+              ${msg.role === "user" ? "bg-violet-600 text-white rounded-tr-sm" : "bg-white text-slate-800 border border-slate-100 shadow-sm rounded-tl-sm"}`}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">AI</div>
+            <div className="bg-white border border-slate-100 shadow-sm rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="flex gap-1 items-center h-4">
+                <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {messages.length === 1 && (
+        <div className="px-8 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 flex-wrap">
+          {suggestions.map((s, i) => (
+            <button key={i} onClick={() => setInput(s)}
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 transition">
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="px-8 py-4 bg-white border-t border-slate-100">
+        <div className="flex gap-3 items-end">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+            placeholder="Kuch poochho ya koi kaam kaho... (Enter = send)"
+            rows={1}
+            className="flex-1 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
+          />
+          <button onClick={sendMessage} disabled={loading || !input.trim()}
+            className="w-11 h-11 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          </button>
+        </div>
+        <p className="text-xs text-slate-400 mt-2 text-center">AI mistakes kar sakta hai — important actions double check karo</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -576,7 +696,7 @@ export default function DashboardPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "candidates" | "team">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "candidates" | "team" | "assistant">("dashboard");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -741,6 +861,7 @@ export default function DashboardPage() {
     { key: "dashboard", label: "Overview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
     { key: "candidates", label: "Candidates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
     ...(userRole === "super_admin" || userRole === "admin" ? [{ key: "team", label: "Team", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg> }] : []),
+    { key: "assistant", label: "HR Assistant", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> },
   ];
 
   return (
@@ -786,15 +907,17 @@ export default function DashboardPage() {
       <div className="ml-56 flex-1">
         <div className="bg-white border-b border-slate-100 px-8 py-4 sticky top-0 z-30">
           <h1 className="text-lg font-bold text-slate-800">
-            {activeTab === "dashboard" ? "Pipeline Overview" : activeTab === "candidates" ? "All Candidates" : "Team Management"}
+            {activeTab === "dashboard" ? "Pipeline Overview" : activeTab === "candidates" ? "All Candidates" : activeTab === "team" ? "Team Management" : "HR Assistant"}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            {activeTab === "dashboard" ? "Real-time recruitment analytics" : activeTab === "candidates" ? `${candidates.length} candidates total` : "Manage access and roles"}
+            {activeTab === "dashboard" ? "Real-time recruitment analytics" : activeTab === "candidates" ? `${candidates.length} candidates total` : activeTab === "team" ? "Manage access and roles" : "AI-powered recruitment helper"}
           </p>
         </div>
 
         {activeTab === "team" ? (
           <TeamPage currentUserId={currentUserId} userRole={userRole} />
+        ) : activeTab === "assistant" ? (
+          <AssistantPage />
         ) : (
           <div className="p-8">
             {activeTab === "dashboard" && (
