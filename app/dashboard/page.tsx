@@ -570,7 +570,7 @@ function AssistantPage() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([
     {
       role: "assistant",
-      content: "Assalam o Alaikum! Main aapka HR Assistant hoon. Candidates ke baare mein poochho, status update karo, ya assignment bhejne ko kaho. Kya madad kar sakta hoon?"
+      content: "Hey! 👋 I'm your HR Assistant. I can help you manage candidates, update statuses, send assignments, and answer questions about your recruitment pipeline. How can I help you today?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -596,17 +596,17 @@ function AssistantPage() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Kuch masla aaya. Please try again." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "Something went wrong. Please try again." }]);
     }
     setLoading(false);
   };
 
   const suggestions = [
-    "Aaj kitne candidates apply kiye?",
-    "Sab selected candidates dikhao",
-    "Pipeline stats batao",
-    "Interview pending candidates kaun hain?",
-  ];
+  "How many candidates applied today?",
+  "Show all selected candidates",
+  "Give me pipeline stats",
+  "Who has a pending interview?",
+ ];
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col">
