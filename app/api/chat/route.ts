@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
 import { MCP_TOOLS, executeMcpTool } from "../mcp/route";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
@@ -221,6 +222,7 @@ async function callClaude(messages: Message[]): Promise<string> {
 export async function POST(req: NextRequest) {
   try {
     const { messages, model = "gemini" }: { messages: Message[]; model: Model } = await req.json();
+    console.log("Chat called, model:", model);
 
     let reply = "";
 
