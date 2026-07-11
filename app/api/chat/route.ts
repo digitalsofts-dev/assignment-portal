@@ -227,14 +227,28 @@ export async function POST(req: NextRequest) {
     let reply = "";
 
     if (model === "openai") {
-      if (!OPENAI_API_KEY) return NextResponse.json({ reply: "OpenAI API key not configured." });
+  if (!OPENAI_API_KEY) return NextResponse.json({ reply: "OpenAI API key not configured." });
+  reply = await callOpenAI(messages);
+ } else if (model === "claude") {
+  if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
+  reply = await callClaude(messages);
+ } else {
+  // Gemini first, fallback to others if rate limited
+  try {
+    reply = await callGemini(messages);
+    if (!reply || reply === "No response received.") throw new Error("Empty response");
+  } catch {
+    if (OPENAI_API_KEY) {
+      console.log("Gemini failed, trying OpenAI...");
       reply = await callOpenAI(messages);
-    } else if (model === "claude") {
-      if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
+    } else if (ANTHROPIC_API_KEY) {
+      console.log("Gemini failed, trying Claude...");
       reply = await callClaude(messages);
     } else {
-      reply = await callGemini(messages);
+      reply = "Service temporarily unavailable. Please try again later.";
     }
+  }
+ }
 
     return NextResponse.json({ reply });
 
