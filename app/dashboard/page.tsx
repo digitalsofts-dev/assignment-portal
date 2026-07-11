@@ -12,6 +12,10 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY!
+);
 
 const ROWS_PER_PAGE = 10;
 
@@ -60,8 +64,14 @@ type Assignment = {
 
 async function openPdf(path: string | null | undefined) {
   if (!path) return;
-  const { data, error } = await supabase.storage.from("documents").createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) { alert("Could not load PDF."); return; }
+  const { data, error } = await supabaseAdmin.storage
+    .from("documents")
+    .createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) {
+    console.error("Signed URL error:", error);
+    alert("Could not load PDF.");
+    return;
+  }
   window.open(data.signedUrl, "_blank");
 }
 
