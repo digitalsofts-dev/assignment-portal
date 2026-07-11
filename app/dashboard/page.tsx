@@ -633,7 +633,12 @@ function AssistantPage() {
             )}
             <div className={`max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
               ${msg.role === "user" ? "bg-violet-600 text-white rounded-tr-sm" : "bg-white text-slate-800 border border-slate-100 shadow-sm rounded-tl-sm"}`}>
-              {msg.content}
+              {msg.content.split('\n').map((line, i) => (
+  <span key={i}>
+    {line.replace(/\*\*(.*?)\*\*/g, '$1')}
+    <br/>
+  </span>
+))}
             </div>
           </div>
         ))}
