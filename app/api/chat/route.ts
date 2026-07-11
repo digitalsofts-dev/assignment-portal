@@ -242,7 +242,7 @@ Be concise and helpful.`;
       candidate = data.candidates?.[0];
     }
 
-    const text = candidate?.content?.parts?.find((p: Record<string, unknown>) => p.text)?.text || "Koi jawab nahi mila.";
+    const text = candidate?.content?.parts?.find((p: Record<string, unknown>) => p.text)?.text || "No response received. Please try again.";
     return NextResponse.json({ reply: text });
 
   } catch (error) {
