@@ -26,44 +26,51 @@ Rules:
 - Be concise and professional`;
 
 // ── Gemini Handler ────────────────────────────────────────────────────────────
-async function callGemini(messages: Message[]) {
+async function callGemini(messages: Message[]): Promise<string> {
   const geminiTools = MCP_TOOLS.map(t => ({
     name: t.name,
     description: t.description,
     parameters: t.inputSchema
   }));
 
-  const geminiMessages = messages.map(m => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversation: any[] = messages.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }]
   }));
 
-  let response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: geminiMessages,
-        tools: [{ function_declarations: geminiTools }],
-        tool_config: { function_calling_config: { mode: "AUTO" } }
-      })
-    }
-  );
+  const callApi = async (contents: unknown[]) => {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents,
+          tools: [{ function_declarations: geminiTools }],
+          tool_config: { function_calling_config: { mode: "AUTO" } }
+        })
+      }
+    );
+    return res.json();
+  };
 
-  let data = await response.json();
-  let candidate = data.candidates?.[0];
-  const conversation = [...geminiMessages];
+  let data = await callApi(conversation);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let candidate = data.candidates?.[0] as any;
   let maxIter = 5;
 
-  while (candidate?.content?.parts?.some((p: Record<string, unknown>) => p.functionCall) && maxIter > 0) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  while (candidate?.content?.parts?.some((p: any) => p.functionCall) && maxIter > 0) {
     maxIter--;
-    const calls = candidate.content.parts.filter((p: Record<string, unknown>) => p.functionCall);
-    conversation.push({ role: "user", content: toolResults as unknown as string });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const calls = candidate.content.parts.filter((p: any) => p.functionCall);
+    conversation.push({ role: "model", parts: candidate.content.parts });
 
     const responses = await Promise.all(
-      calls.map(async (part: { functionCall: { name: string; args: Record<string, string> } }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      calls.map(async (part: any) => {
         const result = await executeMcpTool(part.functionCall.name, part.functionCall.args || {});
         return {
           functionResponse: {
@@ -75,29 +82,16 @@ async function callGemini(messages: Message[]) {
     );
 
     conversation.push({ role: "user", parts: responses });
-
-    response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: conversation,
-          tools: [{ function_declarations: geminiTools }],
-          tool_config: { function_calling_config: { mode: "AUTO" } }
-        })
-      }
-    );
-    data = await response.json();
+    data = await callApi(conversation);
     candidate = data.candidates?.[0];
   }
 
-  return candidate?.content?.parts?.find((p: Record<string, unknown>) => p.text)?.text || "No response received.";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return candidate?.content?.parts?.find((p: any) => p.text)?.text || "No response received.";
 }
 
 // ── OpenAI Handler ────────────────────────────────────────────────────────────
-async function callOpenAI(messages: Message[]) {
+async function callOpenAI(messages: Message[]): Promise<string> {
   const openaiTools = MCP_TOOLS.map(t => ({
     type: "function",
     function: {
@@ -107,28 +101,32 @@ async function callOpenAI(messages: Message[]) {
     }
   }));
 
-  const openaiMessages = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversation: any[] = [
     { role: "system", content: SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role, content: m.content }))
   ];
 
-  let response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: openaiMessages,
-      tools: openaiTools,
-      tool_choice: "auto"
-    })
-  });
+  const callApi = async (msgs: unknown[]) => {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: msgs,
+        tools: openaiTools,
+        tool_choice: "auto"
+      })
+    });
+    return res.json();
+  };
 
-  let data = await response.json();
-  let msg = data.choices?.[0]?.message;
-  const conversation = [...openaiMessages];
+  let data = await callApi(conversation);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let msg = data.choices?.[0]?.message as any;
   let maxIter = 5;
 
   while (msg?.tool_calls && maxIter > 0) {
@@ -136,7 +134,8 @@ async function callOpenAI(messages: Message[]) {
     conversation.push(msg);
 
     const toolResults = await Promise.all(
-      msg.tool_calls.map(async (call: { id: string; function: { name: string; arguments: string } }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      msg.tool_calls.map(async (call: any) => {
         const args = JSON.parse(call.function.arguments);
         const result = await executeMcpTool(call.function.name, args);
         return {
@@ -148,22 +147,7 @@ async function callOpenAI(messages: Message[]) {
     );
 
     conversation.push(...toolResults);
-
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: conversation,
-        tools: openaiTools,
-        tool_choice: "auto"
-      })
-    });
-
-    data = await response.json();
+    data = await callApi(conversation);
     msg = data.choices?.[0]?.message;
   }
 
@@ -171,57 +155,21 @@ async function callOpenAI(messages: Message[]) {
 }
 
 // ── Claude Handler ────────────────────────────────────────────────────────────
-async function callClaude(messages: Message[]) {
+async function callClaude(messages: Message[]): Promise<string> {
   const claudeTools = MCP_TOOLS.map(t => ({
     name: t.name,
     description: t.description,
     input_schema: t.inputSchema
   }));
 
-  const claudeMessages = messages.map(m => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversation: any[] = messages.map(m => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content
   }));
 
-  let response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: claudeMessages,
-      tools: claudeTools
-    })
-  });
-
-  let data = await response.json();
-  const conversation = [...claudeMessages];
-  let maxIter = 5;
-
-  while (data.stop_reason === "tool_use" && maxIter > 0) {
-    maxIter--;
-    const toolUses = data.content.filter((c: Record<string, unknown>) => c.type === "tool_use");
-    conversation.push({ role: "assistant", content: data.content });
-
-    const toolResults = await Promise.all(
-      toolUses.map(async (tool: { id: string; name: string; input: Record<string, string> }) => {
-        const result = await executeMcpTool(tool.name, tool.input);
-        return {
-          type: "tool_result",
-          tool_use_id: tool.id,
-          content: result.content[0].text
-        };
-      })
-    );
-
-    conversation.push({ role: "user", content: toolResults });
-
-    response = await fetch("https://api.anthropic.com/v1/messages", {
+  const callApi = async (msgs: unknown[]) => {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -232,14 +180,40 @@ async function callClaude(messages: Message[]) {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: conversation,
+        messages: msgs,
         tools: claudeTools
       })
     });
-    data = await response.json();
+    return res.json();
+  };
+
+  let data = await callApi(conversation);
+  let maxIter = 5;
+
+  while (data.stop_reason === "tool_use" && maxIter > 0) {
+    maxIter--;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toolUses = data.content.filter((c: any) => c.type === "tool_use");
+    conversation.push({ role: "assistant", content: data.content });
+
+    const toolResults = await Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      toolUses.map(async (tool: any) => {
+        const result = await executeMcpTool(tool.name, tool.input);
+        return {
+          type: "tool_result",
+          tool_use_id: tool.id,
+          content: result.content[0].text
+        };
+      })
+    );
+
+    conversation.push({ role: "user", content: toolResults });
+    data = await callApi(conversation);
   }
 
-  const textBlock = data.content?.find((c: Record<string, unknown>) => c.type === "text");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const textBlock = data.content?.find((c: any) => c.type === "text");
   return textBlock?.text || "No response received.";
 }
 
@@ -257,7 +231,6 @@ export async function POST(req: NextRequest) {
       if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
       reply = await callClaude(messages);
     } else {
-      if (!GEMINI_API_KEY) return NextResponse.json({ reply: "Gemini API key not configured." });
       reply = await callGemini(messages);
     }
 
@@ -269,7 +242,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Available models info
 export async function GET() {
   return NextResponse.json({
     models: [
