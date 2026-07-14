@@ -48,7 +48,9 @@ async function callOllama(messages: Message[]): Promise<string> {
   const callApi = async (msgs: unknown[]) => {
     const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "1"
+       },
       body: JSON.stringify({
         model: "deepseek-r1:1.5b",
         messages: msgs,
