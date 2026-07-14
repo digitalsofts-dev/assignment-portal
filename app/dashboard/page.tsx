@@ -637,7 +637,7 @@ function AssistantPage() {
               Online 
               <button onClick={() => {
               localStorage.removeItem("hr_chat_history");
-              setMessages([{ role: "assistant", content: "Hey! 👋 I'm your HR Assistant..." }]);
+              setMessages([{ role: "assistant", content: "Hey! 👋 I'm your HR Assistant. I can help you manage candidates, update statuses, send assignments, and answer questions about your recruitment pipeline. How can I help you today?" }]);
               }} className="text-xs text-slate-400 hover:text-red-500 transition ml-auto">
              Clear Chat
             </button>
