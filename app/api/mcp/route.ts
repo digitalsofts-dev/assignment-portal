@@ -69,7 +69,18 @@ export const MCP_TOOLS = [
       properties: {},
       required: []
     }
+  },
+  {
+   name: "send_interview_link",
+   description: "Send a Cal.com interview scheduling link to a selected candidate",
+   inputSchema: {
+    type: "object",
+    properties: {
+      email: { type: "string", description: "Candidate email" }
+    },
+    required: ["email"]
   }
+}
 ];
 
 // ── MCP Tool Executor ─────────────────────────────────────────────────────────
@@ -79,7 +90,19 @@ export async function executeMcpTool(name: string, args: Record<string, string>)
     "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
     "Content-Type": "application/json"
   };
-
+  if (name === "send_interview_link") {
+  const n8nUrl = process.env.N8N_INTERVIEW_WEBHOOK;
+  if (!n8nUrl) return { content: [{ type: "text", text: "N8N_INTERVIEW_WEBHOOK not configured." }], isError: true };
+  
+  const res = await fetch(n8nUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: args.email })
+  });
+  
+  if (res.ok) return { content: [{ type: "text", text: `Interview scheduling link sent to ${args.email}!` }] };
+  return { content: [{ type: "text", text: `Failed to send interview link to ${args.email}` }], isError: true };
+}
   if (name === "get_candidates") {
     const filter = args.status !== "all"
       ? `?status=eq.${args.status}&order=created_at.desc`
