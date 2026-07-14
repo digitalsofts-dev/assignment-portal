@@ -284,7 +284,7 @@ async function callClaude(messages: Message[]): Promise<string> {
 // ── Main Handler ──────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const { messages, model = "gemini" }: { messages: Message[]; model: Model } = await req.json();
+    const { messages, model = "ollama" }: { messages: Message[]; model: Model } = await req.json();
     console.log("Chat called, model:", model);
 
     let reply = "";
@@ -298,22 +298,22 @@ export async function POST(req: NextRequest) {
       if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
       reply = await callClaude(messages);
     } else {
-      // Gemini first, fallback to others if rate limited
-      try {
-        reply = await callGemini(messages);
-        if (!reply || reply === "No response received.") throw new Error("Empty response");
-      } catch {
-        if (OPENAI_API_KEY) {
-          console.log("Gemini failed, trying OpenAI...");
-          reply = await callOpenAI(messages);
-        } else if (ANTHROPIC_API_KEY) {
-          console.log("Gemini failed, trying Claude...");
-          reply = await callClaude(messages);
-        } else {
-          reply = "Service temporarily unavailable. Please try again later.";
-        }
-      }
+  // Gemini first, fallback to others if rate limited
+  try {
+    reply = await callGemini(messages);
+    if (!reply || reply === "No response received.") throw new Error("Empty response");
+  } catch {
+    if (OPENAI_API_KEY) {
+      console.log("Gemini failed, trying OpenAI...");
+      reply = await callOpenAI(messages);
+    } else if (ANTHROPIC_API_KEY) {
+      console.log("Gemini failed, trying Claude...");
+      reply = await callClaude(messages);
+    } else {
+      reply = "Service temporarily unavailable. Please try again later.";
     }
+  }
+}
 
     return NextResponse.json({ reply });
 
