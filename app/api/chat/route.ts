@@ -1,4 +1,4 @@
-export const maxDuration = 30;
+export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 import { MCP_TOOLS, executeMcpTool } from "../mcp/route";
