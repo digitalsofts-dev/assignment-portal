@@ -46,20 +46,23 @@ async function callOllama(messages: Message[]): Promise<string> {
   ];
 
   const callApi = async (msgs: unknown[]) => {
-    const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json",
-                "ngrok-skip-browser-warning": "1"
-       },
-      body: JSON.stringify({
-        model: "deepseek-r1:1.5b",
-        messages: msgs,
-        tools,
-        tool_choice: "auto"
-      })
-    });
-    return res.json();
-  };
+  const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "1"
+    },
+    body: JSON.stringify({
+      model: "deepseek-r1:1.5b",
+      messages: msgs,
+      tools,
+      tool_choice: "auto"
+    })
+  });
+  const text = await res.text();
+  if (!text || text.startsWith("<")) throw new Error("Tunnel issue: HTML returned");
+  return JSON.parse(text);
+};
 
   let data = await callApi(conversation);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
