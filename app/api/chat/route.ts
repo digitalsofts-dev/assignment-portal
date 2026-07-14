@@ -6,9 +6,10 @@ import { MCP_TOOLS, executeMcpTool } from "../mcp/route";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 
 type Message = { role: string; content: string };
-type Model = "gemini" | "openai" | "claude";
+type Model = "gemini" | "openai" | "claude" | "ollama";
 
 const SYSTEM_PROMPT = `You are an HR recruitment assistant. You ONLY help with recruitment tasks.
 
@@ -26,6 +27,65 @@ Rules:
 - Always confirm before updating status or sending assignments
 - Always respond in English only
 - Be concise and professional`;
+
+// ── Ollama Handler ────────────────────────────────────────────────────────────
+async function callOllama(messages: Message[]): Promise<string> {
+  const tools = MCP_TOOLS.map(t => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.inputSchema
+    }
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversation: any[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...messages.map(m => ({ role: m.role, content: m.content }))
+  ];
+
+  const callApi = async (msgs: unknown[]) => {
+    const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "deepseek-r1:1.5b",
+        messages: msgs,
+        tools,
+        tool_choice: "auto"
+      })
+    });
+    return res.json();
+  };
+
+  let data = await callApi(conversation);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let msg = data.choices?.[0]?.message as any;
+  let maxIter = 5;
+
+  while (msg?.tool_calls && maxIter > 0) {
+    maxIter--;
+    conversation.push(msg);
+    const toolResults = await Promise.all(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      msg.tool_calls.map(async (call: any) => {
+        const args = JSON.parse(call.function.arguments);
+        const result = await executeMcpTool(call.function.name, args);
+        return {
+          role: "tool",
+          tool_call_id: call.id,
+          content: result.content[0].text
+        };
+      })
+    );
+    conversation.push(...toolResults);
+    data = await callApi(conversation);
+    msg = data.choices?.[0]?.message;
+  }
+
+  return msg?.content || "No response received.";
+}
 
 // ── Gemini Handler ────────────────────────────────────────────────────────────
 async function callGemini(messages: Message[]): Promise<string> {
@@ -55,9 +115,9 @@ async function callGemini(messages: Message[]): Promise<string> {
         })
       }
     );
-   const data = await res.json();
- console.log("Gemini:", res.status, data.error?.message || "OK");
- return data;
+    const data = await res.json();
+    console.log("Gemini:", res.status, data.error?.message || "OK");
+    return data;
   };
 
   let data = await callApi(conversation);
@@ -229,29 +289,31 @@ export async function POST(req: NextRequest) {
 
     let reply = "";
 
-    if (model === "openai") {
-  if (!OPENAI_API_KEY) return NextResponse.json({ reply: "OpenAI API key not configured." });
-  reply = await callOpenAI(messages);
- } else if (model === "claude") {
-  if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
-  reply = await callClaude(messages);
- } else {
-  // Gemini first, fallback to others if rate limited
-  try {
-    reply = await callGemini(messages);
-    if (!reply || reply === "No response received.") throw new Error("Empty response");
-  } catch {
-    if (OPENAI_API_KEY) {
-      console.log("Gemini failed, trying OpenAI...");
+    if (model === "ollama") {
+      reply = await callOllama(messages);
+    } else if (model === "openai") {
+      if (!OPENAI_API_KEY) return NextResponse.json({ reply: "OpenAI API key not configured." });
       reply = await callOpenAI(messages);
-    } else if (ANTHROPIC_API_KEY) {
-      console.log("Gemini failed, trying Claude...");
+    } else if (model === "claude") {
+      if (!ANTHROPIC_API_KEY) return NextResponse.json({ reply: "Anthropic API key not configured." });
       reply = await callClaude(messages);
     } else {
-      reply = "Service temporarily unavailable. Please try again later.";
+      // Gemini first, fallback to others if rate limited
+      try {
+        reply = await callGemini(messages);
+        if (!reply || reply === "No response received.") throw new Error("Empty response");
+      } catch {
+        if (OPENAI_API_KEY) {
+          console.log("Gemini failed, trying OpenAI...");
+          reply = await callOpenAI(messages);
+        } else if (ANTHROPIC_API_KEY) {
+          console.log("Gemini failed, trying Claude...");
+          reply = await callClaude(messages);
+        } else {
+          reply = "Service temporarily unavailable. Please try again later.";
+        }
+      }
     }
-  }
- }
 
     return NextResponse.json({ reply });
 
@@ -264,6 +326,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     models: [
+      { id: "ollama", name: "DeepSeek R1 1.5b (Local)", provider: "Ollama", free: true, configured: true },
       { id: "gemini", name: "Gemini 2.0 Flash", provider: "Google", free: true, configured: !!GEMINI_API_KEY },
       { id: "openai", name: "GPT-4o Mini", provider: "OpenAI", free: false, configured: !!OPENAI_API_KEY },
       { id: "claude", name: "Claude Haiku", provider: "Anthropic", free: false, configured: !!ANTHROPIC_API_KEY },
