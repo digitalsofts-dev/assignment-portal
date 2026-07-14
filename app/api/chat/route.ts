@@ -53,7 +53,7 @@ async function callOllama(messages: Message[]): Promise<string> {
       "ngrok-skip-browser-warning": "1"
     },
     body: JSON.stringify({
-      model: "deepseek-r1:7b",
+      model: "qwen2.5:7b",
       messages: msgs,
       tools,
       tool_choice: "auto"
