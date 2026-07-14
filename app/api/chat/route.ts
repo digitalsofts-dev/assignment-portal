@@ -53,7 +53,7 @@ async function callOllama(messages: Message[]): Promise<string> {
       "ngrok-skip-browser-warning": "1"
     },
     body: JSON.stringify({
-      model: "deepseek-r1:1.5b",
+      model: "deepseek-r1:7b",
       messages: msgs,
       tools,
       tool_choice: "auto"
@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     models: [
-      { id: "ollama", name: "DeepSeek R1 1.5b (Local)", provider: "Ollama", free: true, configured: true },
+      { id: "ollama", name: "DeepSeek R1 7b (Local)", provider: "Ollama", free: true, configured: true },
       { id: "gemini", name: "Gemini 2.0 Flash", provider: "Google", free: true, configured: !!GEMINI_API_KEY },
       { id: "openai", name: "GPT-4o Mini", provider: "OpenAI", free: false, configured: !!OPENAI_API_KEY },
       { id: "claude", name: "Claude Haiku", provider: "Anthropic", free: false, configured: !!ANTHROPIC_API_KEY },
