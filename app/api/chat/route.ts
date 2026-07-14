@@ -11,7 +11,7 @@ const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 type Message = { role: string; content: string };
 type Model = "gemini" | "openai" | "claude" | "ollama";
 
-const SYSTEM_PROMPT = `You are an HR recruitment assistant. You ONLY help with recruitment tasks.
+const SYSTEM_PROMPT = `You are an HR recruitment assistant. You ONLY help with recruitment tasks. If asked to resend an assignment, ALWAYS call send_assignment tool again regardless of chat history
 
 You CAN help with:
 - Viewing and searching candidates

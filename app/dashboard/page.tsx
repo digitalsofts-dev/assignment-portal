@@ -573,12 +573,16 @@ function TeamPage({ currentUserId, userRole }: { currentUserId: string; userRole
 
 // ── Assistant Page ────────────────────────────────────────────────────────────
 function AssistantPage() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
-    {
-      role: "assistant",
-      content: "Hey! 👋 I'm your HR Assistant. I can help you manage candidates, update statuses, send assignments, and answer questions about your recruitment pipeline. How can I help you today?"
-    }
-  ]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(() => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("hr_chat_history");
+    if (saved) return JSON.parse(saved);
+  }
+  return [{
+    role: "assistant",
+    content: "Hey! 👋 I'm your HR Assistant. I can help you manage candidates, update statuses, send assignments, and answer questions about your recruitment pipeline. How can I help you today?"
+  }];
+});
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -586,6 +590,11 @@ function AssistantPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+  useEffect(() => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("hr_chat_history", JSON.stringify(messages));
+  }
+}, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -626,6 +635,12 @@ function AssistantPage() {
             <p className="text-xs text-emerald-500 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
               Online 
+              <button onClick={() => {
+              localStorage.removeItem("hr_chat_history");
+              setMessages([{ role: "assistant", content: "Hey! 👋 I'm your HR Assistant..." }]);
+              }} className="text-xs text-slate-400 hover:text-red-500 transition ml-auto">
+             Clear Chat
+            </button>
             </p>
           </div>
         </div>
