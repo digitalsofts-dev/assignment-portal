@@ -91,7 +91,12 @@ async function callOllama(messages: Message[]): Promise<string> {
     msg = data.choices?.[0]?.message;
   }
 
-  return msg?.content || "No response received.";
+  if (msg?.content) return msg.content;
+   if (msg?.tool_calls) return "Action completed successfully.";
+
+  
+   console.log("Raw msg:", JSON.stringify(msg));
+   return "No response received.";
 }
 
 export async function POST(req: NextRequest) {
