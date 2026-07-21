@@ -41,24 +41,30 @@ async function callOllama(messages: Message[]): Promise<string> {
     ...messages.map(m => ({ role: m.role, content: m.content }))
   ];
 
-  const callApi = async (msgs: unknown[]) => {
-    const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OLLAMA_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "qwen2.5-coder:7b",
-        messages: msgs,
-        tools,
-        tool_choice: "auto"
-      })
-    });
-    const text = await res.text();
-    if (!text || text.startsWith("<")) throw new Error("Invalid response from Ollama");
-    return JSON.parse(text);
-  };
+ const callApi = async (msgs: unknown[]) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+  
+  const res = await fetch(`${OLLAMA_URL}/v1/chat/completions`, {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${OLLAMA_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: "qwen2.5-coder:7b",
+      messages: msgs,
+      tools,
+      tool_choice: "auto"
+    })
+  });
+  
+  clearTimeout(timeout);
+  const text = await res.text();
+  if (!text || text.startsWith("<")) throw new Error("Invalid response from Ollama");
+  return JSON.parse(text);
+};
 
   let data = await callApi(conversation);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
