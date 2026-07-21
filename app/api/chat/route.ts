@@ -62,6 +62,9 @@ async function callOllama(messages: Message[]): Promise<string> {
   
   clearTimeout(timeout);
   const text = await res.text();
+  console.log("Ollama status:", res.status);
+  console.log("Ollama raw response:", text.substring(0, 500));
+  
   if (!text || text.startsWith("<")) throw new Error("Invalid response from Ollama");
   return JSON.parse(text);
 };
